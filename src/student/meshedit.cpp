@@ -191,8 +191,100 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_face(Halfedge_Me
 */
 std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::EdgeRef e) {
 
-    (void)e;
-    return std::nullopt;
+    if (e->on_boundary()) 
+        return std::nullopt;
+    using halfedgePtr = Halfedge_Mesh::HalfedgeRef;
+    using vertexPtr = Halfedge_Mesh::VertexRef;
+    using facePtr = Halfedge_Mesh::FaceRef;
+    using edgePtr = Halfedge_Mesh::EdgeRef;
+    
+    halfedgePtr h0 = e->halfedge();
+    halfedgePtr h1 = e->halfedge()->twin();
+    vertexPtr v0= h0->vertex();
+    vertexPtr v1 = h1->vertex();
+    facePtr f0 = h0->face();
+    facePtr f1 = h1->face();
+    if (v1->degree() <= 2 || v0->degree() <= 2)
+        return std::nullopt;
+
+    std::vector<halfedgePtr>left, right;
+    std::vector<vertexPtr>vtx;
+    std::vector<edgePtr>egs;
+    halfedgePtr iter;
+    right.push_back(h1);
+    size_t cnt = 0;
+    for (iter = h1->next(); iter != h1; iter = iter->next())
+    {
+        right.push_back(iter);
+        vtx.push_back(iter->vertex());
+        egs.push_back(iter->edge());
+        cnt++;
+    }
+    if (cnt < 2) return std::nullopt;
+    cnt = 0;
+    left.push_back(h0);
+    printf("YES1\n");
+    for (iter = h0->next(); iter != h0; iter = iter->next())
+    {
+        left.push_back(iter);
+        vtx.push_back(iter->vertex());
+        egs.push_back(iter->edge());
+        cnt++;
+        
+    }
+    if (cnt < 2) return std::nullopt;
+    printf("%lu %lu %lu\n", left.size(), right.size(), vtx.size());
+    h0->vertex() = vtx[1];
+    h1->vertex() = vtx[right.size()];
+    v0->halfedge() = right[1];
+    v1->halfedge() = left[1];
+    printf("YES1\n");
+    vtx[1]->halfedge() = h0;
+    vtx[right.size()]->halfedge() = h1;
+    // right[0]->face() = f0;
+    // left[0]->face() = f1;
+    right[1]->face() = f0;
+    left[1]->face() = f1;
+    // right[right.size()-1]->face
+    printf("YES1\n");
+    h1->next() = right[2];
+    h0->next() = left[2];
+    printf("YES1\n");
+    right[1]->next() = h0;
+    left[1]->next() = h1;
+    right[right.size()-1]->next() = left[1];
+    left[left.size()-1]->next() = right[1];
+    printf("hi\n");
+    std::set<HalfedgeRef> permutation;
+    
+    f1->halfedge() = h1;
+    f0->halfedge() = h0;
+    
+    for(FaceRef f = faces_begin(); f != faces_end(); f++) {
+
+        if(ferased.find(f) != ferased.end()) continue;
+
+        HalfedgeRef h = f->halfedge();
+        // if(herased.find(h) != herased.end()) {
+        //     return {{f, "A face's halfedge is erased!"}};
+        // }
+
+        do {
+            if(h->face() != f) {
+                printf("this %u, hf %u, f %u\n", h->id(), h->face()->id(), f->id());
+            printf( "A face's halfedge does not point to that face!\n");
+                // return {{h, "A face's halfedge does not point to that face!"}};
+            }
+            h = h->next();
+        } while(h != f->halfedge());
+    }
+    validate();
+
+    // Check valid halfedge permutation
+    
+    return e;
+    
+    
 }
 
 /*
