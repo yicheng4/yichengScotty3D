@@ -38,7 +38,7 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::erase_vertex(Halfedge_Mesh:
 
     // // Do not delete boundries and the last vertexes.
     validate();
-    if (v->on_boundary() || (faces.size() - v->degree() < 3))
+    if (v->on_boundary() || ((long)faces.size() - (long)v->degree() < 1))
         return std::nullopt;
     
     using halfEdgePtr = Halfedge_Mesh::HalfedgeRef;
@@ -52,10 +52,23 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::erase_vertex(Halfedge_Mesh:
     halfEdgePtr start = v->halfedge();
     do {
         halfEdgePtr h;
+        halfEdgePtr tmp;
+        vertexPtr tmp2;
+        bool started = false;
         for (h = this_h->next(); h->next() != this_h; h = h->next())  {
-            nbr_halfedge.push_back(h);
-            nbr_vertex.push_back(h->vertex()); 
-             
+            if (started){
+                nbr_halfedge.insert(std::find(nbr_halfedge.begin(), nbr_halfedge.end(), tmp),h);
+            nbr_vertex.insert(std::find(nbr_vertex.begin(), nbr_vertex.end(), tmp2),h->vertex()); 
+            }
+
+            else{
+                nbr_halfedge.push_back(h);
+                nbr_vertex.push_back(h->vertex()); 
+            }
+            
+            tmp = h;
+            tmp2 = h->vertex();
+            started = true;
         }
         nbr_face.push_back(this_h->face());
         this_h = this_h->twin()->next();
@@ -63,8 +76,13 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::erase_vertex(Halfedge_Mesh:
     size_t nbr_edge_cnt = nbr_halfedge.size();
     printf("Yes%ld\n", nbr_edge_cnt);
     for (size_t i = 0; i < nbr_edge_cnt; i++) {   
-        printf("%u\n",nbr_halfedge[i]->id());
-        nbr_halfedge[i]->next() = nbr_halfedge[(i-1) % nbr_edge_cnt];
+        if (i == 0)
+        {printf("%u's next is %u\n",nbr_halfedge[i]->id(), nbr_halfedge[nbr_edge_cnt-1]->id());
+        nbr_halfedge[i]->next() = nbr_halfedge[nbr_edge_cnt-1];}
+        else{
+            printf("%u's next is %u\n",nbr_halfedge[i]->id(), nbr_halfedge[i-1]->id());
+            nbr_halfedge[i]->next() = nbr_halfedge[i-1];
+        }
         nbr_vertex[i]->halfedge() = nbr_halfedge[i];
         nbr_halfedge[i]->face() = nbr_face[0];
     }
@@ -87,7 +105,20 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::erase_vertex(Halfedge_Mesh:
     printf("Yes2\n");
     Halfedge_Mesh::erase(v);
     nbr_face[0]->halfedge() = nbr_halfedge[0];
-    
+    // for(VertexRef v = vertices_begin(); v != vertices_end(); v++) {
+
+        
+    //     HalfedgeRef h = v->halfedge();
+        
+    //     do {
+    //         if(h->vertex() != v) {
+    //             printf("vid %u, hid %u, hvid %u\n", v->id(), h->id(), h->vertex()->id());
+    //             printf("A vertex's halfedge does not point to that vertex!\n");
+    //         }
+    //         h = h->twin()->next();
+    //     } while(h != v->halfedge());
+    // }
+
     return nbr_face[0]; 
     
 
