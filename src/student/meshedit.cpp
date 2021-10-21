@@ -131,8 +131,8 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::erase_edge(Halfedge_Mesh::E
     facePtr f0 = h0->face();
     facePtr f1 = h1->face();
     std::vector<halfedgePtr> workingh;
-    if ((v0->degree() == 1 && v0->on_boundary()) || (v0->degree() == 2 && !v0->on_boundary()) 
-    || (v1->degree() == 1 && v1->on_boundary()) || (v1->degree() == 2 && !v1->on_boundary()))
+    if (v0->degree() < 3 
+    || v1->degree() < 3)
         return std::nullopt;
     for (halfedgePtr h = h1->next(); h != h1; h = h->next()) {
         workingh.insert(workingh.begin(),h);
@@ -155,10 +155,12 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::erase_edge(Halfedge_Mesh::E
         workingh[i]->face() = f0;
     }
     f0->halfedge() = workingh[0];
+    // f1->halfege() =
     Halfedge_Mesh::erase(h0);
     Halfedge_Mesh::erase(h1);
     Halfedge_Mesh::erase(e);
     Halfedge_Mesh::erase(f1);
+    
     return f0;
 
     
@@ -176,85 +178,119 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(Halfedge_Me
     
     using halfEdgePtr = Halfedge_Mesh::HalfedgeRef;
     using vertexPtr = Halfedge_Mesh::VertexRef;
-    using facePtr = Halfedge_Mesh::FaceRef;
+    // using facePtr = Halfedge_Mesh::FaceRef;
 
     halfEdgePtr h0 = e->halfedge();
     halfEdgePtr h1 = h0->twin();
     vertexPtr v0 = h0->vertex();
     vertexPtr v1 = h1->vertex();
+    std::set<vertexPtr>vtxIn;
+    std::vector<halfEdgePtr> left, right;
+    for(halfEdgePtr h = h1->next(); h->twin() != h1; h = h->twin()->next())
+    {
+        
+        vtxIn.insert(h->twin()->vertex());
+        left.push_back(h);
+    }
+    for(halfEdgePtr h = h0->next(); h->twin() != h0; h = h->twin()->next())
+    {
+        vertexPtr t = h->twin()->vertex();
+        if (vtxIn.find(t) != vtxIn.end())
+        {
+            if (std::nullopt == Halfedge_Mesh::erase_edge(t->halfedge()->edge()))
+            {
+                return std::nullopt;
+            }
+            else
+                if (validate() != std::nullopt)
+                {
+                    printf("NOO\n");
+                }
+        }
+        
+    }
+    for(halfEdgePtr h = h0->next(); h->twin() != h0; h = h->twin()->next())
+    {
+        right.push_back(h);
+        
+    }
+
+    h0->face()->halfedge() = h0->face()->halfedge()->next();
+    h1->face()->halfedge() = h1->face()->halfedge()->next();
     if (faces.size() <= 2)
         return std::nullopt;
     
     vertexPtr v = new_vertex();
     v->pos = v0->pos + v1->pos;
     v->pos /= 2;
-    std::vector<vertexPtr> vtx;
-    std:;vector<halfEdgePtr> left, right;
-    for(halfEdgePtr h = h1->next(); h->twin() != h1; h = h->twin()->next())
+    // std::vector<vertexPtr> vtx;
+    
+    
+    size_t leftSize = left.size();
+    size_t rightSize = right.size();
+    if (leftSize < 1 || rightSize < 1) 
     {
-        vtx.push_back(h->twin()->vertex());
-        left.push_back(h);
-        left.push_back(h->twin());
+        // Halfedge_Mesh::erase(v0);
+        // Halfedge_Mesh::erase(v1);
+        // Halfedge_Mesh::erase(h0);
+        // Halfedge_Mesh::erase(h1);
+        // Halfedge_Mesh::erase(e);
+        Halfedge_Mesh::erase_edge(e);
+        // validate();
+        if (validate() != std::nullopt)
+    {
+        printf("NOO\n");
+    }
+        return v;
+    }
+    
+    printf("YEs\n");
+    // Halfedge_Mesh::erase_edge(e);
+    for(size_t i = 0; i < left.size(); i++)
+    {
+        halfEdgePtr h = left[i];
         h->vertex() = v;
+        v->halfedge() = h;
        
     }
-    for(halfEdgePtr h = h0->next(); h->twin() != h0; h = h->twin()->next())
+    for(size_t i = 0; i < right.size(); i++)
     {
-        vertexPtr t = h->twin()->vertex();
-        if (vtx.find(t) != vtx.end())
-        {
-            if (std::nullopt == Halfedge_Mesh::erase_edge(t->edge()))
-            {
-                return std::nullopt
-            }
-            else
-                validate();
+        halfEdgePtr h = right[i];
+        h->vertex() = v;
+        v->halfedge() = h;
+       
+    }
+
+    right[right.size()-1]->twin()->next() = left[0];
+    left[left.size()-1]->twin()->next() = right[0];
+
+    Halfedge_Mesh::erase(v0);
+    Halfedge_Mesh::erase(v1);
+    Halfedge_Mesh::erase(h0);
+    Halfedge_Mesh::erase(h1);
+    Halfedge_Mesh::erase(e);
+    if (validate() != std::nullopt)
+    {
+        printf("NOO\n");
+    }
+    std::set<HalfedgeRef> permutation;
+    for(HalfedgeRef h = halfedges_begin(); h != halfedges_end(); h++) {
+
+        
+
+        // Check whether each halfedge's next points to a unique halfedge
+        if(permutation.find(h->next()) == permutation.end()) {
+            permutation.insert(h->next());
+        } else {
+            printf("h %u\n", h->id());
+            printf( "A halfedge is the next of multiple halfedges!\n");
         }
-        right.push_back(h);
-        right.push_back(h->twin());
-        h->vertex() = v;
     }
-
-    vector<halfEdgePtr> left, right;
-    for(halfEdgePtr h = h1->next(); h->twin() != h1; h = h->twin()->next())
-    {
-        left.push_back(h);
-        left.push_back(h->twin());
-        h->vertex() = v;
-    }
-    for(halfEdgePtr h = h0->next(); h->twin() != h0; h = h->twin()->next())
-    {
-        right.push_back(h);
-        right.push_back(h->twin());
-        h->vertex() = v;
-    }
-    // v->halfedge() = left[0];
+    return v;
 
 
 
-    do {
-        halfEdgePtr h;
-        halfEdgePtr tmp;
-        vertexPtr tmp2;
-        bool started = false;
-        for (h = this_h->next(); h->next() != this_h; h = h->next())  {
-            if (started){
-                nbr_halfedge.insert(std::find(nbr_halfedge.begin(), nbr_halfedge.end(), tmp),h);
-            nbr_vertex.insert(std::find(nbr_vertex.begin(), nbr_vertex.end(), tmp2),h->vertex()); 
-            }
-
-            else{
-                nbr_halfedge.push_back(h);
-                nbr_vertex.push_back(h->vertex()); 
-            }
-            
-            tmp = h;
-            tmp2 = h->vertex();
-            started = true;
-        }
-        nbr_face.push_back(this_h->face());
-        this_h = this_h->twin()->next();
-    } while(this_h != start);     
+    
 }
 
 /*
@@ -305,7 +341,7 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
     if (cnt < 2) return std::nullopt;
     cnt = 0;
     left.push_back(h0);
-    printf("YES1\n");
+    // printf("YES1\n");
     for (iter = h0->next(); iter != h0; iter = iter->next())
     {
         left.push_back(iter);
@@ -320,7 +356,7 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
     h1->vertex() = vtx[right.size()];
     v0->halfedge() = right[1];
     v1->halfedge() = left[1];
-    printf("YES1\n");
+    // printf("YES1\n");
     vtx[1]->halfedge() = h0;
     vtx[right.size()]->halfedge() = h1;
     // right[0]->face() = f0;
@@ -328,15 +364,15 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
     right[1]->face() = f0;
     left[1]->face() = f1;
     // right[right.size()-1]->face
-    printf("YES1\n");
+    // printf("YES1\n");
     h1->next() = right[2];
     h0->next() = left[2];
-    printf("YES1\n");
+    // printf("YES1\n");
     right[1]->next() = h0;
     left[1]->next() = h1;
     right[right.size()-1]->next() = left[1];
     left[left.size()-1]->next() = right[1];
-    printf("hi\n");
+    // printf("hi\n");
     std::set<HalfedgeRef> permutation;
     
     f1->halfedge() = h1;
