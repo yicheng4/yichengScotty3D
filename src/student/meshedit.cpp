@@ -246,7 +246,7 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(Halfedge_Me
     
     
     
-    printf("YEs2\n");
+    // printf("YEs2\n");
     // Halfedge_Mesh::erase_edge(e);
     for(size_t i = 0; i < left.size(); i++)
     {
@@ -343,7 +343,7 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(Halfedge_Mesh::Ed
         
     }
     if (cnt < 2) return std::nullopt;
-    printf("%lu %lu %lu\n", left.size(), right.size(), vtx.size());
+    // printf("%lu %lu %lu\n", left.size(), right.size(), vtx.size());
     h0->vertex() = vtx[1];
     h1->vertex() = vtx[right.size()];
     v0->halfedge() = right[1];
@@ -399,12 +399,8 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(Halfedge_Mesh:
     
     vertexPtr v0= h0->vertex();
     vertexPtr v1 = h1->vertex();
-    
-    facePtr f3 = new_face();
-    facePtr f2 = new_face();
-    
-    halfedgePtr h;
     std::vector<halfedgePtr>left, right;
+    halfedgePtr h;
     for (h = h0->next(); h != h0; h = h->next())
     {
         left.push_back(h);
@@ -417,6 +413,12 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(Halfedge_Mesh:
     {
         return std::nullopt;
     }
+    
+    facePtr f3 = new_face();
+    facePtr f2 = new_face();
+    
+    
+    
     vertexPtr vL= left[1]->vertex();
     vertexPtr vR = right[1]->vertex();
     Halfedge_Mesh::erase_edge(e);
@@ -484,66 +486,7 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(Halfedge_Mesh:
     new_half[2]->vertex() = left[1]->vertex();
     new_half[6]->vertex() = right[1]->vertex();
 
-    for(int i =0; i < 4; i++)
-    {
-        printf("%u\n",new_eg[i]->halfedge()->twin()->edge()->id());
-        
-    }
-    std::set<HalfedgeRef> permutation;
-
-    for(HalfedgeRef h = halfedges_begin(); h != halfedges_end(); h++) {
-
-        if(herased.find(h) != herased.end()) continue;
-
-       
-        if(ferased.find(h->face()) != ferased.end()) {
-            printf("h %u, f%u\n", h->id(), h->face()->id());
-            // return {{h, "A live halfedge's face was erased!"}};
-        }
-
-        // Check whether each halfedge's next points to a unique halfedge
-        if(permutation.find(h->next()) == permutation.end()) {
-            permutation.insert(h->next());
-        } else {
-            printf( "A halfedge is the next of multiple halfedges!\n");
-        }
-    }
-    for(VertexRef v = vertices_begin(); v != vertices_end(); v++) {
-
-        if(verased.find(v) != verased.end()) continue;
-
-        HalfedgeRef h = v->halfedge();
-        // if(herased.find(h) != herased.end()) {
-        //     return {{v, "A vertex's halfedge is erased!"}};
-        // }
-
-        do {
-            if(h->vertex() != v) {
-                printf("h %u, v%u, hv %u\n", h->id(), v->id(), h->vertex()->id());
-                printf( "A vertex's halfedge does not point to that vertex!n");
-                // return {{h, "A vertex's halfedge does not point to that vertex!"}};
-            }
-            h = h->twin()->next();
-        } while(h != v->halfedge());
-    }
-
-    for(EdgeRef e = edges_begin(); e != edges_end(); e++) {
-
-        if(eerased.find(e) != eerased.end()) continue;
-
-        HalfedgeRef h = e->halfedge();
-        // if(herased.find(h) != herased.end()) {
-        //     return {{e, "An edge's halfedge is erased!"}};
-        // }
-
-        do {
-            printf("%u\n", e->id());
-            if(h->edge() != e) {
-                printf( "A vertex's halfedge does not point to that vertex!n\n");
-            }
-            h = h->twin();
-        } while(h != e->halfedge());
-    }
+    
 
     validate();
     return v;
@@ -693,6 +636,11 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::bevel_face(Halfedge_Mesh::F
     }
 
     for (long i = 0; i < cnt; i++)
+    {   
+        new_vtx[i]->pos = vtx[i]->pos;
+    }
+
+    for (long i = 0; i < cnt; i++)
     {
         out[i]->next() = in_eg[(i+1)%cnt];
         out[i]->vertex() = vtx[i];
@@ -731,7 +679,7 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::bevel_face(Halfedge_Mesh::F
     
 
     validate();
-    printf("YEs\n");
+    // printf("YEs\n");
     return f;
 }
 
@@ -823,7 +771,7 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
                                          float normal_offset) {
                                             
     if(flip_orientation) normal_offset = -normal_offset;
-    printf("OHH\n");
+    // printf("OHH\n");
     std::vector<HalfedgeRef> new_halfedges;
     auto h = face->halfedge();
     do {
@@ -831,30 +779,71 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
         h = h->next();
     } while(h != face->halfedge());
 
+
     
 
     // Vec3 normal = new_halfedges[0]->next()
 
     long cnt = (long)start_positions.size();
-    if (cnt < 3) return;
-    Vec3 center= start_positions[0];
-    for(long i = 1; i < (long)start_positions.size(); i++)
+    std::vector<Vec3> origV = start_positions;
+
+    Vec3 center= origV[0];
+    for(long i = 1; i < (long)origV.size(); i++)
     {
-        center = center + start_positions[i];
-        printf("%f, %f, %f\n", start_positions[i].x, start_positions[i].y, start_positions[i].z);
+        center = center + origV[i];
+        // printf("%f, %f, %f\n", origV[i].x, origV[i].y, origV[i].z);
     }
 
     center = center / cnt;
-    printf("center: %f, %f, %f\n\n", center.x, center.y, center.z);
+    // printf("center: %f, %f, %f\n\n", center.x, center.y, center.z);
 
-    std::vector<Vec3>middlePos;
+    Vec3 normalF = cross(origV[0]-origV[1], origV[2]-origV[1]);
+
+    // for(long i = 1; i < cnt; i++)
+    // {
+    //     Vec3 newNormal = cross(origV[(i-1)%cnt]-origV[i], origV[(i+1)%cnt]-origV[i]).normalize();
+    //     if ((newNormal - normalF.normalize()).norm() > 0.001f)
+    //     {
+    //         //not flat surface
+    //         return;
+
+    //     }
+    // }
+
+    std::vector<Vec3>tangent_normals;
+    float min_tang_offset = MAXFLOAT;
     for(long i = 0; i < (long)start_positions.size(); i++)
     {
-        Vec3 pos = face->normal()*normal_offset + (tangent_offset * start_positions[i] + center) / (tangent_offset+1);
+        Vec3 norm = (center - origV[i]).normalize();
+        if (norm.x != 0 && (center - origV[i]).x/norm.x < min_tang_offset)
+        {
+            min_tang_offset = (center - origV[i]).x/norm.x;
+        }
+        if (norm.y != 0 && (center - origV[i]).y/norm.y < min_tang_offset)
+        {
+            min_tang_offset = (center - origV[i]).y/norm.y;
+        }
+        if (norm.z != 0 && (center - origV[i]).z/norm.z < min_tang_offset)
+        {
+            min_tang_offset = (center - origV[i]).z/norm.z;
+        }
+        tangent_normals.push_back(norm);
+    }
+
+    if (tangent_offset > min_tang_offset)
+    {
+        tangent_offset = min_tang_offset;
+    }
+    // printf("%f %f\n", tangent_offset, min_tang_offset);
+    std::vector<Vec3>middlePos;
+
+    for(long i = 0; i < (long)start_positions.size(); i++)
+    {
+        Vec3 pos = normalF.normalize() * normal_offset + (tangent_offset * tangent_normals[i] + origV[i]);
         middlePos.push_back(pos);
     }
     for (long i = 0; i < (long)new_halfedges.size(); i++) {
-        printf("%f, %f, %f\n", middlePos[i].x, middlePos[i].y, middlePos[i].z);
+        // printf("%f, %f, %f\n", middlePos[i].x, middlePos[i].y, middlePos[i].z);
         new_halfedges[i]->vertex()->pos = middlePos[i];
     }
 
