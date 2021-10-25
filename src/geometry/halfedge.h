@@ -284,7 +284,8 @@ public:
         Splits all non-triangular faces into triangles.
     */
     void triangulate();
-
+    void addEdge(std::vector<HalfedgeRef>& hEgs,
+    std::vector<VertexRef>& vtx, long v0Idx, long v1Idx);
     /*
         Compute new vertex positions for a mesh that splits each polygon
         into quads (by inserting a vertex at the face midpoint and each

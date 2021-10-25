@@ -5,6 +5,7 @@
 
 #include "../geometry/halfedge.h"
 #include "debug.h"
+#include <iostream>
 
 /* Note on local operation return types:
 
@@ -602,7 +603,7 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::bevel_face(Halfedge_Mesh::F
         cnt++;
     }
     
-    if (cnt <= 2)
+    if (cnt <= 1)
         return std::nullopt;
     cnt ++;
     
@@ -861,9 +862,84 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
 /*
     Splits all non-triangular faces into triangles.
 */
-void Halfedge_Mesh::triangulate() {
+void Halfedge_Mesh::addEdge(std::vector<Halfedge_Mesh::HalfedgeRef>& hEgs,
+    std::vector<Halfedge_Mesh::VertexRef>& vtx, long v0Idx, long v1Idx)
+//h is a halfedge on face of v0 and v1
+{
+    using halfedgePtr = Halfedge_Mesh::HalfedgeRef;
+    // using vertexPtr = Halfedge_Mesh::VertexRef;
+    using facePtr = Halfedge_Mesh::FaceRef;
+    using edgePtr = Halfedge_Mesh::EdgeRef;
+    if (v0Idx == v1Idx)
+    {
+        return;
+    }
+    long size = hEgs.size();
+    edgePtr e = Halfedge_Mesh::new_edge();
+    facePtr f0 = hEgs[0]->face();
+    facePtr f1 = Halfedge_Mesh::new_face();
+    halfedgePtr h0 = Halfedge_Mesh::new_halfedge();
+    halfedgePtr h1 = Halfedge_Mesh::new_halfedge();
+    h0->twin() = h1;
+    h1->twin() = h0;
+    h0->next() = hEgs[v0Idx];
+    h1->next() = hEgs[v1Idx];
+    h0->vertex() = vtx[v1Idx];
+    h1->vertex() = vtx[v0Idx];
+    h0->edge() = e;
+    h1->edge() = e;
+    h0->face() = f0;
+    h1->face() = f1;
+    
+    hEgs[v1Idx == 0 ? size - 1 : v1Idx - 1]->next() = h0;
+    hEgs[v0Idx == 0 ? size - 1 : v0Idx - 1]->next() = h1;
+    if (v0Idx < v1Idx)
+        for (long i = 0; i < size; i++){
+            if (i < v0Idx || i >= v1Idx){
+                hEgs[i]->face() = f1;
+            }
+        }
+    else
+        for (long i = 0; i < size; i++){
+            if (i > v0Idx && i <= v1Idx){
+                hEgs[i]->face() = f1;
+            }
+        }
+    f0->halfedge() = hEgs[v0Idx];
+    f1->halfedge() = hEgs[v1Idx];
+    e->halfedge() = h0;
+    auto valid = validate();
+    if(valid.has_value()) 
+        std::cout << valid.value().second << "\n";
 
-    // For each face...
+
+}
+void Halfedge_Mesh::triangulate() {
+    // FaceRef end = faces_end();
+    for(Halfedge_Mesh::FaceRef f = faces_begin(); f != faces_end(); f++) {
+        std::vector<HalfedgeRef> hEgs;
+        std::vector<VertexRef> vtx;
+
+        HalfedgeRef h0 = f->halfedge();
+        HalfedgeRef h = h0->next();
+        hEgs.push_back(h0);
+        vtx.push_back(h0->vertex());
+        for (h = h0->next(); h != h0; h = h->next())
+        {
+            hEgs.push_back(h);
+            vtx.push_back(h->vertex());
+        }
+        // printf("YES\n");
+        long size = hEgs.size();
+        if (size < 4)
+            continue;
+        
+        addEdge(hEgs,vtx,  0, 2);
+        
+    }
+
+
+    
 }
 
 /* Note on the quad subdivision process:
@@ -926,13 +1002,32 @@ void Halfedge_Mesh::linear_subdivide_positions() {
 
     // For each vertex, assign Vertex::new_pos to
     // its original position, Vertex::pos.
+    for (auto& v : vertices)
+    {
+        v.new_pos =v.pos;
+    }
 
     // For each edge, assign the midpoint of the two original
     // positions to Edge::new_pos.
+    for (auto& e : edges) {
+        e.new_pos = (e.halfedge()->vertex()->pos + e.halfedge()->twin()->vertex()->pos) / 2;
+    }
 
     // For each face, assign the centroid (i.e., arithmetic mean)
     // of the original vertex positions to Face::new_pos. Note
     // that in general, NOT all faces will be triangles!
+    Vec3 center;
+    for (auto& f : faces) {
+        
+        HalfedgeRef h = f.halfedge();
+        center = h->vertex()->pos;
+
+        for (h = f.halfedge()->next(); h != f.halfedge(); h = h->next())
+            center += h->vertex()->pos;
+        
+        center /= f.degree();
+        f.new_pos = center;
+    }
 }
 
 /*
@@ -980,7 +1075,7 @@ void Halfedge_Mesh::loop_subdivide() {
     // the Loop subdivision rule and store them in Vertex::new_pos.
     //    At this point, we also want to mark each vertex as being a vertex of the
     //    original mesh. Use Vertex::is_new for this.
-    
+     
     // Next, compute the subdivided vertex positions associated with edges, and
     // store them in Edge::new_pos.
     
