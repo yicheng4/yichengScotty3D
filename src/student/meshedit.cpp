@@ -1049,9 +1049,42 @@ void Halfedge_Mesh::catmullclark_subdivide_positions() {
     // rules. (These rules are outlined in the Developer Manual.)
 
     // Faces
+    Vec3 center;
+    for (auto& f : faces) {
+        
+        HalfedgeRef h = f.halfedge();
+        center = h->vertex()->pos;
 
+        for (h = f.halfedge()->next(); h != f.halfedge(); h = h->next())
+            center += h->vertex()->pos;
+        
+        center /= f.degree();
+        f.new_pos = center;
+    }
     // Edges
-
+    for (auto& e: edges){
+        HalfedgeRef h0 = e.halfedge();
+        HalfedgeRef h1 = h0->twin();
+        Vec3 v0 = h0->vertex()->pos;
+        Vec3 v1 = h1->vertex()->pos;
+        Vec3 v2 = h0->face()->new_pos;
+        Vec3 v3 = h0->face()->new_pos;
+    
+        e.new_pos = (v0 + v1 + v2 + v3) / 4;
+    }
+    for (auto& v : vertices){
+        long n = (long)v.degree();
+        HalfedgeRef h = v.halfedge();
+        Vec3 q = h->face()->new_pos;
+        Vec3 r = (h->vertex()->pos + h->twin()->vertex()->pos) / 2;
+        for (h = v.halfedge()->twin()->next(); h != v.halfedge(); h = h->twin()->next()){
+            r += (h->vertex()->pos + h->twin()->vertex()->pos) / 2;
+            q += h->face()->new_pos;
+        }
+        q /= v.degree();
+        r /= v.degree();
+        v.new_pos = (q + 2*r + (n-3) * v.pos) / n;
+    }
     // Vertices
 }
 
