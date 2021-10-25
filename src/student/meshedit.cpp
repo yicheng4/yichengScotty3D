@@ -1108,20 +1108,92 @@ void Halfedge_Mesh::loop_subdivide() {
     // the Loop subdivision rule and store them in Vertex::new_pos.
     //    At this point, we also want to mark each vertex as being a vertex of the
     //    original mesh. Use Vertex::is_new for this.
+    for(auto v = vertices_begin(); v != vertices_end(); v++) {
+        v->is_new = false;
+        long n = (long)v->degree();
+        float u = (n == 3 ? 3.0f/16.0f : 3.0/(8*n));
+        Vec3 new_pos =  (1- n*u) * v->pos + u * v->halfedge()->twin()->vertex()->pos;
+        for (HalfedgeRef h = v->halfedge()->twin()->next(); h != v->halfedge(); ){
+            h = h->twin();
+            new_pos += h->vertex()->pos;
+            h = h->next();
+        }
+        v->new_pos = new_pos;
+    }
      
     // Next, compute the subdivided vertex positions associated with edges, and
     // store them in Edge::new_pos.
-    
+    for(auto e = edges_begin(); e != edges_end(); e++) {
+        // e->is_new() = false;
+        float aPlusB = 3.0f/8.0f;
+        float cPlusD = 1.0f/8.0f;
+        HalfedgeRef h0 = e->halfedge();
+        HalfedgeRef h1 = h0->twin();
+        Vec3 A = h0->vertex()->pos;
+        Vec3 B = h1->vertex()->pos;
+        Vec3 C = h0->next()->next()->vertex()->pos;
+        Vec3 D = h1->next()->next()->vertex()->pos;
+        e->new_pos = aPlusB * (A+B) + cPlusD * (C + D);
+
+
+    }
+
+    auto valid = validate();
+    if(valid.has_value()) 
+        std::cout << valid.value().second << "\n\n\n";
     // Next, we're going to split every edge in the mesh, in any order.
     // We're also going to distinguish subdivided edges that came from splitting 
     // an edge in the original mesh from new edges by setting the boolean Edge::is_new. 
     // Note that in this loop, we only want to iterate over edges of the original mesh.
     // Otherwise, we'll end up splitting edges that we just split (and the
     // loop will never end!)
+    auto eEnd = edges_end();
+    printf("%u\n", edges_begin()->id());
+    for(auto e = edges_begin(); e != eEnd; e++) {
+        printf("%u\n", e->id());
+        HalfedgeRef h0 = e->halfedge();
+        HalfedgeRef h1 = h0->twin();
+        VertexRef v0 = h0->vertex();
+        VertexRef v1 = h1->vertex();
+        auto splitted = split_edge(e);
+        auto valid = validate();
+        if(valid.has_value()) 
+            std::cout << valid.value().second << "\n\n\n";
+        VertexRef vNew;
+        if (splitted)
+            vNew = *splitted;
+        else{
+            printf("ERROR when splitting edges\n");
+            return;
+        }
+        vNew->is_new = true;
+        vNew->new_pos = e->new_pos;
+        HalfedgeRef h = vNew->halfedge();
+        do{
+            if (h->twin()->vertex() != v0 && h->twin()->vertex() != v1){
+                h->twin()->edge()->is_new = true;
+            }
+            h = h->twin()->next();
+        }while (h != vNew->halfedge());
+    }
     
     // Now flip any new edge that connects an old and new vertex.
-    
+    for (auto e = eEnd; e != edges_end(); e++)
+    {
+        HalfedgeRef h0 = e->halfedge();
+        HalfedgeRef h1 = h0->twin();
+        VertexRef v0 = h0->vertex();
+        VertexRef v1 = h1->vertex();
+        if (v0->is_new != v1->is_new)
+        {
+            flip_edge(e);
+        }
+    }
+
     // Finally, copy new vertex positions into the Vertex::pos.
+    for(auto v = vertices_begin(); v != vertices_end(); v++) {
+        v->pos = v->new_pos;
+    }
 }
 
 /*
