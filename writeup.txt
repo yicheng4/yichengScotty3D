@@ -1,4 +1,12 @@
-I first implemented erase edge and then I used it later. 
-For the edge flip I delete the original edge and added new four edges and a new vertex.
-For the edge collapse, what I did is to go to the neighboring vertices and see if they are overlapping, if there is overlapping vertices I will delete the edge and finally combine them by collapsing them together.
-For for the face bevel what I did is to assign new address and positions.
+AndrewID: yicheng4
+
+Checkpoint:
+
+    Fully implemented.
+	
+Final:
+ Fully implemented what everyone should do. Finished LoopSubdivision;
+
+Extra credit:
+
+    

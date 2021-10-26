@@ -38,7 +38,7 @@
 std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::erase_vertex(Halfedge_Mesh::VertexRef v) {
 
     // // Do not delete boundries and the last vertexes.
-    validate();
+    // validate();
     if (v->on_boundary() || ((long)faces.size() - (long)v->degree() < 1))
         return std::nullopt;
     
@@ -1111,22 +1111,29 @@ void Halfedge_Mesh::loop_subdivide() {
     for(auto v = vertices_begin(); v != vertices_end(); v++) {
         v->is_new = false;
         long n = (long)v->degree();
-        float u = (n == 3 ? 3.0f/16.0f : 3.0/(8*n));
+        double u = (n == 3 ? 3.0/16.0 : 3.0/(8.0 * (double) n));
         Vec3 new_pos =  (1- n*u) * v->pos + u * v->halfedge()->twin()->vertex()->pos;
         for (HalfedgeRef h = v->halfedge()->twin()->next(); h != v->halfedge(); ){
             h = h->twin();
-            new_pos += h->vertex()->pos;
+            new_pos += u * h->vertex()->pos;
             h = h->next();
         }
         v->new_pos = new_pos;
+        bool finite = std::isfinite(new_pos.x) && std::isfinite(new_pos.y) && std::isfinite(new_pos.z);
+        if (!finite){
+            printf("NOT FINITE\n");
+        }
+        
+        // printf("%u %f %f %f\n", v->id(), v->new_pos.x, v->new_pos.y,v->new_pos.z);
     }
      
     // Next, compute the subdivided vertex positions associated with edges, and
     // store them in Edge::new_pos.
     for(auto e = edges_begin(); e != edges_end(); e++) {
-        // e->is_new() = false;
-        float aPlusB = 3.0f/8.0f;
-        float cPlusD = 1.0f/8.0f;
+        
+        e->is_new = false;
+        double aPlusB = 3.0/8.0;
+        double cPlusD = 1.0/8.0;
         HalfedgeRef h0 = e->halfedge();
         HalfedgeRef h1 = h0->twin();
         Vec3 A = h0->vertex()->pos;
@@ -1137,24 +1144,30 @@ void Halfedge_Mesh::loop_subdivide() {
 
 
     }
-
-    auto valid = validate();
-    if(valid.has_value()) 
-        std::cout << valid.value().second << "\n\n\n";
+    size_t num = n_edges();
+    // auto valid = validate();
+    // if(valid.has_value()) 
+    //     std::cout << valid.value().second << "\n\n\n";
     // Next, we're going to split every edge in the mesh, in any order.
     // We're also going to distinguish subdivided edges that came from splitting 
     // an edge in the original mesh from new edges by setting the boolean Edge::is_new. 
     // Note that in this loop, we only want to iterate over edges of the original mesh.
     // Otherwise, we'll end up splitting edges that we just split (and the
     // loop will never end!)
-    auto eEnd = edges_end();
-    printf("%u\n", edges_begin()->id());
-    for(auto e = edges_begin(); e != eEnd; e++) {
-        printf("%u\n", e->id());
+    // auto eEnd = edges_end();
+    
+    // printf("%u %u %lu\n", edges_begin()->id(), edges_end()->id(), num);
+    auto e = edges_begin();
+    for(size_t i = 0; i < num; i++) {
+        e++;
+        auto next = e;
+        e--;
+        // printf("%u\n", e->id());
         HalfedgeRef h0 = e->halfedge();
         HalfedgeRef h1 = h0->twin();
         VertexRef v0 = h0->vertex();
         VertexRef v1 = h1->vertex();
+        Vec3 pos = e->new_pos;
         auto splitted = split_edge(e);
         auto valid = validate();
         if(valid.has_value()) 
@@ -1167,7 +1180,7 @@ void Halfedge_Mesh::loop_subdivide() {
             return;
         }
         vNew->is_new = true;
-        vNew->new_pos = e->new_pos;
+        vNew->new_pos = pos;
         HalfedgeRef h = vNew->halfedge();
         do{
             if (h->twin()->vertex() != v0 && h->twin()->vertex() != v1){
@@ -1175,16 +1188,17 @@ void Halfedge_Mesh::loop_subdivide() {
             }
             h = h->twin()->next();
         }while (h != vNew->halfedge());
+        e = next;
     }
     
     // Now flip any new edge that connects an old and new vertex.
-    for (auto e = eEnd; e != edges_end(); e++)
+    for (; e != edges_end(); e++)
     {
         HalfedgeRef h0 = e->halfedge();
         HalfedgeRef h1 = h0->twin();
         VertexRef v0 = h0->vertex();
         VertexRef v1 = h1->vertex();
-        if (v0->is_new != v1->is_new)
+        if (v0->is_new != v1->is_new && e->is_new)
         {
             flip_edge(e);
         }
@@ -1192,7 +1206,16 @@ void Halfedge_Mesh::loop_subdivide() {
 
     // Finally, copy new vertex positions into the Vertex::pos.
     for(auto v = vertices_begin(); v != vertices_end(); v++) {
-        v->pos = v->new_pos;
+        Vec3 p = v->new_pos;
+        bool finite = std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z);
+        if (finite){
+            v->pos = v->new_pos;
+            // printf("%u %f %f %f\n", v->id(), v->pos.x, v->pos.y,v->pos.z);
+        }
+        else{
+            printf("not finite %u", v->id());
+        }
+            
     }
 }
 
