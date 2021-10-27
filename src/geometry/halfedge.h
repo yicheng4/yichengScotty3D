@@ -315,6 +315,8 @@ public:
     /*
         Isotropic remeshing
     */
+    double mean_edge_len();
+    std::optional<VertexRef> collapse_edge_remesh(EdgeRef e, std::vector<EdgeRef>& E);
     bool isotropic_remesh();
 
     /*

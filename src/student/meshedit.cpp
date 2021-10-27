@@ -6,6 +6,7 @@
 #include "../geometry/halfedge.h"
 #include "debug.h"
 #include <iostream>
+#include<float.h>
 
 /* Note on local operation return types:
 
@@ -278,12 +279,7 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(Halfedge_Me
     {
         printf("NOO\n");
     }
-   
     return v;
-
-
-
-    
 }
 
 /*
@@ -812,7 +808,7 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
     // }
 
     std::vector<Vec3>tangent_normals;
-    float min_tang_offset = MAXFLOAT;
+    float min_tang_offset = FLT_MAX;
     for(long i = 0; i < (long)start_positions.size(); i++)
     {
         Vec3 norm = (center - origV[i]).normalize();
@@ -1192,7 +1188,7 @@ void Halfedge_Mesh::loop_subdivide() {
     }
     
     // Now flip any new edge that connects an old and new vertex.
-    for (; e != edges_end(); e++)
+    for (; e < edges_end(); e++)
     {
         HalfedgeRef h0 = e->halfedge();
         HalfedgeRef h1 = h0->twin();
@@ -1201,6 +1197,7 @@ void Halfedge_Mesh::loop_subdivide() {
         if (v0->is_new != v1->is_new && e->is_new)
         {
             flip_edge(e);
+            printf("flipped %u\n", e->id());
         }
     }
 
@@ -1224,18 +1221,195 @@ void Halfedge_Mesh::loop_subdivide() {
     manner to the local operations, except with only a boolean value.
     (e.g. you may want to return false if this is not a triangle mesh)
 */
+
+
+std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge_remesh(Halfedge_Mesh::EdgeRef e, std::vector<Halfedge_Mesh::EdgeRef>& shortE) {
+
+    if (e->on_boundary())
+        return std::nullopt;
+    
+    using halfEdgePtr = Halfedge_Mesh::HalfedgeRef;
+    using vertexPtr = Halfedge_Mesh::VertexRef;
+    // using facePtr = Halfedge_Mesh::FaceRef;
+
+    halfEdgePtr h0 = e->halfedge();
+    halfEdgePtr h1 = h0->twin();
+    vertexPtr v0 = h0->vertex();
+    vertexPtr v1 = h1->vertex();
+    std::set<vertexPtr>vtxIn;
+    std::vector<halfEdgePtr> left, right;
+    for(halfEdgePtr h = h1->next(); h->twin() != h1; h = h->twin()->next()){
+        
+        vtxIn.insert(h->twin()->vertex());
+        left.push_back(h);
+    }
+    size_t righthand = 0;
+    for(halfEdgePtr h = h0->next(); h->twin() != h0; h = h->twin()->next()){
+        vertexPtr t = h->twin()->vertex();
+        if (vtxIn.find(t) == vtxIn.end()){
+           righthand++;
+        }
+        
+    }
+    if (righthand == 0){
+        return std::nullopt;
+    }
+    for(halfEdgePtr h = h0->next(); h->twin() != h0; h = h->twin()->next()){
+        vertexPtr t = h->twin()->vertex();
+        if (vtxIn.find(t) != vtxIn.end()){
+            if (find(shortE.begin(), shortE.end(), h->edge()) != shortE.end())
+                shortE.erase(find(shortE.begin(), shortE.end(), h->edge()));
+            
+            if (std::nullopt == Halfedge_Mesh::erase_edge(h->edge())){
+                return std::nullopt;
+            }
+            else
+                if (validate() != std::nullopt){
+                    printf("NOO\n");
+                }
+        }
+    }
+    for(halfEdgePtr h = h0->next(); h->twin() != h0; h = h->twin()->next()){
+        right.push_back(h);
+        
+    }
+    if (faces.size() <= 2)
+        return std::nullopt;
+    size_t leftSize = left.size();
+    size_t rightSize = right.size();
+    if (leftSize < 1 || rightSize < 1) {
+        return std::nullopt;
+    }
+    vertexPtr v = new_vertex();
+    v->pos = v0->pos + v1->pos;
+    v->pos /= 2;
+    for(size_t i = 0; i < left.size(); i++){
+        halfEdgePtr h = left[i];
+        h->vertex() = v;
+        v->halfedge() = h;  
+    }
+    for(size_t i = 0; i < right.size(); i++){
+        halfEdgePtr h = right[i];
+        h->vertex() = v;
+        v->halfedge() = h;
+       
+    }
+
+    right[right.size()-1]->twin()->next() = left[0];
+    left[left.size()-1]->twin()->next() = right[0];
+    h0->face()->halfedge() = h0->face()->halfedge()->next();
+    h1->face()->halfedge() = h1->face()->halfedge()->next();
+
+    Halfedge_Mesh::erase(v0);
+    Halfedge_Mesh::erase(v1);
+    Halfedge_Mesh::erase(h0);
+    Halfedge_Mesh::erase(h1);
+    Halfedge_Mesh::erase(e);
+    if (find(shortE.begin(), shortE.end(), e) != shortE.end())
+        shortE.erase(find(shortE.begin(), shortE.end(), e));
+    
+    if (validate() != std::nullopt){
+        printf("NOO\n");
+    }
+    return v;
+}
+
+double Halfedge_Mesh::mean_edge_len()
+{
+    double result = 0.0;
+    for (auto e = edges_begin(); e != edges_end(); e++)
+    {
+        result += e->length();
+    }
+    return result / n_edges();
+}
+
 bool Halfedge_Mesh::isotropic_remesh() {
 
-    // Compute the mean edge length.
+    for(auto f = faces_begin(); f != faces_end(); f++)
+    {
+        if (f->degree() != 3) return false;
+    }
+    
+    int times = 6;
     // Repeat the four main steps for 5 or 6 iterations
-    // -> Split edges much longer than the target length (being careful about
+    for (int time = 0; time < times; time++)
+    {// Compute the mean edge length.
+        double mean = mean_edge_len();
+        // -> Split edges much longer than the target length (being careful about
     //    how the loop is written!)
+        long num = n_edges();
+        auto e = edges_begin();
+        for (long i = 0; i < num; i++)
+        {
+            e++;
+            auto nextE = e;
+            e--;
+            if (e->length() > mean * 4 / 3) {
+                split_edge(e);
+                auto valid = validate();
+                
+            }
+            e = nextE;
+        }
+
     // -> Collapse edges much shorter than the target length.  Here we need to
     //    be EXTRA careful about advancing the loop, because many edges may have
     //    been destroyed by a collapse (which ones?)
-    // -> Now flip each edge if it improves vertex degree
-    // -> Finally, apply some tangential smoothing to the vertex positions
+        num = n_edges();
+        e = edges_begin();
+        std::vector<EdgeRef>shortE;
+        for (auto e = edges_begin(); e != edges_end(); e++)
+        {
+            if (e->length() > mean * 4 / 3) {
+                shortE.push_back(e);
+            }
+        }
+        // printf("\nstart: %lu\n", shortE.size());
+        // int i = shortE.size();
+        while (!shortE.empty()){
+            // i--;
+            auto e = shortE.front();
+            auto x = collapse_edge_remesh(e, shortE);
+            if (x){
+                // printf("%lu\n", shortE.size());
+                continue;
+            }
+            else
+                shortE.erase(shortE.begin());
+            // printf("%lu\n", shortE.size());
+        }
 
+        
+
+    // -> Now flip each edge if it improves vertex degree
+    for (auto e = edges_begin(); e != edges_end(); e++)
+        {
+           int a1 = e->halfedge()->vertex()->degree();
+           int b1 = e->halfedge()->next()->next()->vertex()->degree();
+           int a2 = e->halfedge()->twin()->vertex()->degree();
+           int b2 = e->halfedge()->twin()->next()->next()->vertex()->degree();
+           int dev = abs(a1-6) + abs(a2-6) + abs(b1-6) + abs(b2-6);
+           int new_dev = abs(a1-6 - 1) + abs(a2-6 - 1) + abs(b1-6 + 1) + abs(b2-6 + 1);
+           if (new_dev < dev){
+               flip_edge(e);
+           }
+
+        }
+    // -> Finally, apply some tangential smoothing to the vertex positions
+    for (auto v = vertices_begin(); v != vertices_end(); v++){
+        Vec3 direction = v->neighborhood_center() - v->pos;
+        v->new_pos = v->pos + 0.2 * direction;
+    }
+    for (auto v = vertices_begin(); v != vertices_end(); v++){
+        
+        v->pos = v->new_pos;
+    }
+
+    validate();
+
+
+    }
     // Note: if you erase elements in a local operation, they will not be actually deleted
     // until do_erase or validate is called. This is to facilitate checking
     // for dangling references to elements that will be erased.
@@ -1243,7 +1417,7 @@ bool Halfedge_Mesh::isotropic_remesh() {
     // but here simply calling collapse_edge() will not erase the elements.
     // You should use collapse_edge_erase() instead for the desired behavior.
 
-    return false;
+    return true;
 }
 
 /* Helper type for quadric simplification */

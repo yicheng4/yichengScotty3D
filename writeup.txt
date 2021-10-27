@@ -6,7 +6,13 @@ Checkpoint:
 	
 Final:
  Fully implemented what everyone should do. Finished LoopSubdivision;
+	The model created is simulating the Oriental Pearl TV Tower from my hometown Shanghai.
+	https://youtu.be/R_lQhK8_Bfc
 
 Extra credit:
+erase_vertex
+erase_edge
+collapse_edge_remesh
 
+Remark: sometimes the prog is slow on big projects.
     
