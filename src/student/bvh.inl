@@ -44,21 +44,24 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
     
     new_node(box, 0, primitives.size(), 0, 0);
     root_idx = 0;
-   
+    // printf("Primitive Num %zu\n", primitives.size());
     std::queue<size_t>nodeQ;
-
+    nodeQ.push(root_idx);
     while(!nodeQ.empty()){
         size_t num = nodeQ.front();
         nodeQ.pop();
-        Node n = nodes[num]; 
+        // printf("\nwe have %zu nodes left\n", nodeQ.size());
+        Node* n = &nodes[num]; 
         if (num >= nodes.size()) {
             printf("node index out of range\n");
             continue;
         }
-        if (n.size == 1) continue;
-        printf("New nodes\n");
-        std::vector<Primitive*>ps;
-        float SN = n.bbox.surface_area();
+        // printf("Node %zu, left pos %f, %f, %f, right pos %f, %f, %f.\n", 
+            // num, n.bbox.min[0], n.bbox.min[1], n.bbox.min[2], n.bbox.max[0], n.bbox.max[1], n.bbox.max[2]);
+        if (nodes[num].size == 1) continue;
+        // if (num == 0) printf("FIRST\n");
+
+        float SN = nodes[num].bbox.surface_area();
         
         float bestC = FLT_MAX;
         int bestAxis = 4;
@@ -66,16 +69,17 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
         int bestPartition = 0;
         int possibleNum = 16;
         for (int axis = 0; axis < 3; axis++){
-            float min_point = n.bbox.min[axis];
-            float max_point = n.bbox.max[axis];
+            float min_point = nodes[num].bbox.min[axis];
+            float max_point = nodes[num].bbox.max[axis];
             float range = max_point - min_point;
-            
+            // if (num == 0 && range <= 0.0) printf("Range %f\n", range);
             float gap = range / (float)possibleNum;
             if (range <= 0.0) continue;
+            //  if (num == 0) printf("Second %d\n", axis);
             for (int potentialParti = 0; potentialParti < possibleNum; potentialParti++){
                 float threahold = gap * (float)potentialParti + min_point;
-                auto prim_start_iterator = primitives.begin() + n.start;
-                auto prim_end_iterator = primitives.begin() + n.start + n.size;
+                auto prim_start_iterator = primitives.begin() + nodes[num].start;
+                auto prim_end_iterator = primitives.begin() + nodes[num].start + nodes[num].size;
                 std::partition(prim_start_iterator, prim_end_iterator, 
                 [threahold, axis](const Primitive& P)
                 {
@@ -84,7 +88,7 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
                 
                 size_t largestLeft = 0;
                 BBox left, right;
-                for(size_t i = n.start; i < n.start + n.size; i++){
+                for(size_t i = nodes[num].start; i < nodes[num].start + nodes[num].size; i++){
                     if (primitives[i].bbox().center()[axis] < threahold)
                     {
                         largestLeft = i;
@@ -96,7 +100,7 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
                 }
                 float SA = left.surface_area();
                 float SB = right.surface_area();
-                float C = SA/SN * (largestLeft - n.start + 1) + SB/SN * (n.start + n.size - largestLeft) + 1;
+                float C = SA/SN * (largestLeft - nodes[num].start + 1) + SB/SN * (nodes[num].start + nodes[num].size - largestLeft) + 1;
                 if (C < bestC){
                     bestAxis = axis;
                     bestC = C;
@@ -105,13 +109,14 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
                 }
             }
         }
-        float min_point = n.bbox.min[bestAxis];
-        float max_point = n.bbox.max[bestAxis];
+        // printf("bestAxis %d\n", bestAxis);
+        float min_point = nodes[num].bbox.min[bestAxis];
+        float max_point = nodes[num].bbox.max[bestAxis];
         float range = max_point - min_point;
         float gap = range / (float)possibleNum;
         float threahold = gap * (float)bestPartition + min_point;
-        auto prim_start_iterator = primitives.begin() + n.start;
-        auto prim_end_iterator = primitives.begin() + n.start + n.size;
+        auto prim_start_iterator = primitives.begin() + nodes[num].start;
+        auto prim_end_iterator = primitives.begin() + nodes[num].start + nodes[num].size;
         std::partition(prim_start_iterator, prim_end_iterator, 
                 [threahold, bestAxis](const Primitive& P)
                 {
@@ -121,7 +126,7 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
                
         BBox left, right;
         size_t leftcnt=0, rightcnt=0;
-        for(size_t i = n.start; i < n.start + n.size; i++){
+        for(size_t i = nodes[num].start; i < nodes[num].start + nodes[num].size; i++){
             if (primitives[i].bbox().center()[bestAxis] < threahold)
             {
                 left.enclose(primitives[i].bbox());
@@ -133,10 +138,10 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
             }
         }
 
-        if (leftcnt == 0 || leftcnt == n.size)
+        if (leftcnt == 0 || leftcnt == n->size)
         {
-            for(size_t i = n.start; i < n.start + n.size; i++){
-                if (i < n.start + n.size/2)
+            for(size_t i = nodes[num].start; i < nodes[num].start + nodes[num].size; i++){
+                if (i < nodes[num].start + nodes[num].size/2)
                 {
                     left.enclose(primitives[i].bbox());
                     leftcnt++;
@@ -146,23 +151,75 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
                     rightcnt++;
                 }
             }
-            n.l = new_node(left, n.start, n.size/2, 0, 0);
-            n.r = new_node(right, n.start + n.size/2, n.size - n.size/2, 0, 0);
-            nodeQ.push(n.l);
-            nodeQ.push(n.r);
+            
+            nodes[num].l = new_node(left, nodes[num].start, nodes[num].size/2, 0, 0);
+            nodes[num].r = new_node(right, nodes[num].start + nodes[num].size/2, nodes[num].size - nodes[num].size/2, 0, 0);
+            // if (num == 0)
+            //     printf("New node %zu %zu\n", nodes[num].l, nodes[num].r);
+            nodeQ.push(nodes[num].l);
+            nodeQ.push(nodes[num].r);
         }
         else{
-            n.l = new_node(left, n.start, leftcnt, 0, 0);
-            n.r = new_node(right, n.start + leftcnt, rightcnt, 0, 0);
-            nodeQ.push(n.l);
-            nodeQ.push(n.r);
+            nodes[num].l = new_node(left, nodes[num].start, leftcnt, 0, 0);
+            nodes[num].r = new_node(right, nodes[num].start + leftcnt, rightcnt, 0, 0);
+            // if (num == 0)
+            //     printf("New nodes %zu %zu\n", nodes[num].l, nodes[num].r);
+            nodeQ.push(nodes[num].l);
+            nodeQ.push(nodes[num].r);
         }
         
 
 
     }
+
+    // for (size_t i = 0; i < nodes.size(); i++)
+    // {
+    //     Node n = nodes[i];
+    //     printf("Node %zu, left %zu, right %zu, size %zu\n", i, n.l, n.r, n.size);
+    // }
     
     
+
+}
+
+template<typename Primitive> bool BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeNum, Trace* closest) const{
+    if (nodeNum >= nodes.size()){
+        printf("hit out of bound\n"); return false;
+    }
+    Node node = nodes[nodeNum];
+    if (node.is_leaf())
+    {
+        Trace new_hit = primitives[node.start].hit(ray);
+        if (new_hit.hit && new_hit.distance < closest->distance){
+            *closest = new_hit;
+            return true;
+        }
+        return false;
+    }
+    else{
+        Vec2 hit1;
+        Vec2 hit2;
+        
+        bool h1 = nodes[node.l].bbox.hit(ray, hit1);
+        bool h2 = nodes[node.r].bbox.hit(ray, hit2);
+        // if (h1)
+        //     printf("hit1 %f, %f\n", hit1.x, hit1.y);
+        // if (h2)
+        //     printf("hit2 %f, %f\n", hit2.x, hit2.y);
+        if (!h1 && h2) return find_closest_hit(ray, node.r, closest);
+        if (h1 && !h2) return find_closest_hit(ray, node.l, closest);
+        if (!h1 && !h2) return false;
+        size_t first = (hit1.x <= hit2.x) ? node.l : node.r;
+        size_t second = (hit1.x > hit2.x) ? node.l : node.r;
+        // Vec2 hitsecond = (hit1.x <= hit2.x) ? hit2 : hit1;
+        bool left = find_closest_hit(ray, first, closest);
+        // bool right = find_closest_hit(ray, f)
+        // if ((left && (hitsecond.x < closest->distance)) || !left)
+        // {
+            return left || find_closest_hit(ray, second, closest);
+        // }
+        // return left;
+    }
 
 }
 
@@ -176,12 +233,29 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
     // The starter code simply iterates through all the primitives.
     // Again, remember you can use hit() on any Primitive value.
 
+    // Trace ret;
+    // for(const Primitive& prim : primitives) {
+    //     Trace hit = prim.hit(ray);
+    //     ret = Trace::min(ret, hit);
+    // }
+    // return ret;
+
     Trace ret;
-    for(const Primitive& prim : primitives) {
-        Trace hit = prim.hit(ray);
-        ret = Trace::min(ret, hit);
+    // float dist = 0.0f;
+    ret.distance = FLT_MAX;
+    bool hit = find_closest_hit(ray, 0, &ret);
+    if (!hit){
+       ret.origin = ray.point;
+        ret.hit = false;       // was there an intersection?
+        ret.distance = 0.0f;   // at what distance did the intersection occur?
+        ret.position = Vec3(); // where was the intersection?
+        ret.normal = Vec3();   // what was the surface normal at the intersection? 
+        return ret;
     }
-    return ret;
+    else{
+       
+        return ret;
+    }
 }
 
 template<typename Primitive>

@@ -13,7 +13,7 @@ Ray Camera::generate_ray(Vec2 screen_coord) const {
 
     float x = screen_coord.x;
     float y = screen_coord.y;
-    float screenH = 2 * std::tan(vert_fov/180.0 * PI_F / 2.0);
+    float screenH = 2.0f * (float)std::tan(vert_fov/180.0f * PI_F / 2.0f);
     float screenW = screenH * aspect_ratio;
     Vec3 direction = Vec3((x-0.5f) * screenW, (y-0.5f) * screenH, -1.0f);
     // printf ("x and y, %f %f \n", (x-0.5f) * screenW, (y-0.5f) * screenH);
