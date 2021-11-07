@@ -56,12 +56,13 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
             continue;
         }
         if (n.size == 1) continue;
+        printf("New nodes\n");
         std::vector<Primitive*>ps;
         float SN = n.bbox.surface_area();
         
         float bestC = FLT_MAX;
         int bestAxis = 4;
-        size_t bestLeftMost = 0;
+        
         int bestPartition = 0;
         int possibleNum = 16;
         for (int axis = 0; axis < 3; axis++){
@@ -99,7 +100,7 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
                 if (C < bestC){
                     bestAxis = axis;
                     bestC = C;
-                    bestLeftMost = largestLeft;
+                    
                     bestPartition = potentialParti;
                 }
             }

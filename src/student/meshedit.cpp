@@ -926,7 +926,7 @@ void Halfedge_Mesh::triangulate() {
             vtx.push_back(h->vertex());
         }
         // printf("YES\n");
-        long size = hEgs.size();
+        long size = (long)hEgs.size();
         if (size < 4)
             continue;
         
@@ -1079,7 +1079,7 @@ void Halfedge_Mesh::catmullclark_subdivide_positions() {
         }
         q /= (float)v.degree();
         r /= (float)v.degree();
-        v.new_pos = (q + 2.0f*r + ((float)n-3.0f) * v.pos) / n;
+        v.new_pos = (q + 2.0f*r + ((float)n-3.0f) * v.pos) / (float)n;
     }
     // Vertices
 }
@@ -1107,7 +1107,7 @@ void Halfedge_Mesh::loop_subdivide() {
     for(auto v = vertices_begin(); v != vertices_end(); v++) {
         v->is_new = false;
         long n = (long)v->degree();
-        float u = (n == 3 ? 3.0/16.0 : 3.0/(8.0 * (float) n));
+        float u = (n == 3 ? 3.0f/16.0f : 3.0f/(8.0f * (float) n));
         Vec3 new_pos =  (1.0f- (float)n*u) * v->pos + u * v->halfedge()->twin()->vertex()->pos;
         for (HalfedgeRef h = v->halfedge()->twin()->next(); h != v->halfedge(); ){
             h = h->twin();
