@@ -791,7 +791,7 @@ void Halfedge_Mesh::bevel_face_positions(const std::vector<Vec3>& start_position
         // printf("%f, %f, %f\n", origV[i].x, origV[i].y, origV[i].z);
     }
 
-    center = center / cnt;
+    center = center / (float)cnt;
     // printf("center: %f, %f, %f\n\n", center.x, center.y, center.z);
 
     Vec3 normalF = cross(origV[0]-origV[1], origV[2]-origV[1]);
@@ -870,7 +870,7 @@ void Halfedge_Mesh::addEdge(std::vector<Halfedge_Mesh::HalfedgeRef>& hEgs,
     {
         return;
     }
-    long size = hEgs.size();
+    long size = (long)hEgs.size();
     edgePtr e = Halfedge_Mesh::new_edge();
     facePtr f0 = hEgs[0]->face();
     facePtr f1 = Halfedge_Mesh::new_face();
@@ -1021,7 +1021,7 @@ void Halfedge_Mesh::linear_subdivide_positions() {
         for (h = f.halfedge()->next(); h != f.halfedge(); h = h->next())
             center += h->vertex()->pos;
         
-        center /= f.degree();
+        center /= (float)f.degree();
         f.new_pos = center;
     }
 }
@@ -1054,7 +1054,7 @@ void Halfedge_Mesh::catmullclark_subdivide_positions() {
         for (h = f.halfedge()->next(); h != f.halfedge(); h = h->next())
             center += h->vertex()->pos;
         
-        center /= f.degree();
+        center /= (float)f.degree();
         f.new_pos = center;
     }
     // Edges
@@ -1077,9 +1077,9 @@ void Halfedge_Mesh::catmullclark_subdivide_positions() {
             r += (h->vertex()->pos + h->twin()->vertex()->pos) / 2;
             q += h->face()->new_pos;
         }
-        q /= v.degree();
-        r /= v.degree();
-        v.new_pos = (q + 2*r + (n-3) * v.pos) / n;
+        q /= (float)v.degree();
+        r /= (float)v.degree();
+        v.new_pos = (q + 2.0f*r + ((float)n-3.0f) * v.pos) / n;
     }
     // Vertices
 }
@@ -1107,8 +1107,8 @@ void Halfedge_Mesh::loop_subdivide() {
     for(auto v = vertices_begin(); v != vertices_end(); v++) {
         v->is_new = false;
         long n = (long)v->degree();
-        double u = (n == 3 ? 3.0/16.0 : 3.0/(8.0 * (double) n));
-        Vec3 new_pos =  (1- n*u) * v->pos + u * v->halfedge()->twin()->vertex()->pos;
+        float u = (n == 3 ? 3.0/16.0 : 3.0/(8.0 * (float) n));
+        Vec3 new_pos =  (1.0f- (float)n*u) * v->pos + u * v->halfedge()->twin()->vertex()->pos;
         for (HalfedgeRef h = v->halfedge()->twin()->next(); h != v->halfedge(); ){
             h = h->twin();
             new_pos += u * h->vertex()->pos;
@@ -1128,8 +1128,8 @@ void Halfedge_Mesh::loop_subdivide() {
     for(auto e = edges_begin(); e != edges_end(); e++) {
         
         e->is_new = false;
-        double aPlusB = 3.0/8.0;
-        double cPlusD = 1.0/8.0;
+        float aPlusB = 3.0f/8.0f;
+        float cPlusD = 1.0f/8.0f;
         HalfedgeRef h0 = e->halfedge();
         HalfedgeRef h1 = h0->twin();
         Vec3 A = h0->vertex()->pos;
@@ -1338,7 +1338,7 @@ bool Halfedge_Mesh::isotropic_remesh() {
         double mean = mean_edge_len();
         // -> Split edges much longer than the target length (being careful about
     //    how the loop is written!)
-        long num = n_edges();
+        long num = (long)n_edges();
         auto e = edges_begin();
         for (long i = 0; i < num; i++)
         {
@@ -1356,21 +1356,21 @@ bool Halfedge_Mesh::isotropic_remesh() {
     // -> Collapse edges much shorter than the target length.  Here we need to
     //    be EXTRA careful about advancing the loop, because many edges may have
     //    been destroyed by a collapse (which ones?)
-        num = n_edges();
+        num = (long)n_edges();
         e = edges_begin();
         std::vector<EdgeRef>shortE;
-        for (auto e = edges_begin(); e != edges_end(); e++)
+        for (auto e2 = edges_begin(); e2 != edges_end(); e2++)
         {
-            if (e->length() > mean * 4 / 3) {
-                shortE.push_back(e);
+            if (e2->length() > mean * 4 / 3) {
+                shortE.push_back(e2);
             }
         }
         // printf("\nstart: %lu\n", shortE.size());
         // int i = shortE.size();
         while (!shortE.empty()){
             // i--;
-            auto e = shortE.front();
-            auto x = collapse_edge_remesh(e, shortE);
+            auto e3 = shortE.front();
+            auto x = collapse_edge_remesh(e3, shortE);
             if (x){
                 // printf("%lu\n", shortE.size());
                 continue;
@@ -1383,16 +1383,16 @@ bool Halfedge_Mesh::isotropic_remesh() {
         
 
     // -> Now flip each edge if it improves vertex degree
-    for (auto e = edges_begin(); e != edges_end(); e++)
+    for (auto e4 = edges_begin(); e4 != edges_end(); e4++)
         {
-           int a1 = e->halfedge()->vertex()->degree();
-           int b1 = e->halfedge()->next()->next()->vertex()->degree();
-           int a2 = e->halfedge()->twin()->vertex()->degree();
-           int b2 = e->halfedge()->twin()->next()->next()->vertex()->degree();
+           int a1 = e4->halfedge()->vertex()->degree();
+           int b1 = e4->halfedge()->next()->next()->vertex()->degree();
+           int a2 = e4->halfedge()->twin()->vertex()->degree();
+           int b2 = e4->halfedge()->twin()->next()->next()->vertex()->degree();
            int dev = abs(a1-6) + abs(a2-6) + abs(b1-6) + abs(b2-6);
            int new_dev = abs(a1-6 - 1) + abs(a2-6 - 1) + abs(b1-6 + 1) + abs(b2-6 + 1);
            if (new_dev < dev){
-               flip_edge(e);
+               flip_edge(e4);
            }
 
         }

@@ -61,7 +61,7 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
         
         float bestC = FLT_MAX;
         int bestAxis = 4;
-        int bestLeftMost = -1;
+        size_t bestLeftMost = 0;
         int bestPartition = 0;
         int possibleNum = 16;
         for (int axis = 0; axis < 3; axis++){
