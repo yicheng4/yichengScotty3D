@@ -2,6 +2,7 @@
 #include "../rays/bvh.h"
 #include "debug.h"
 #include <stack>
+#include<queue>
 
 namespace PT {
 
@@ -15,7 +16,7 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
     // a variety of Objects (which might be Tri_Meshes, Spheres, etc.) in Pathtracer.
     //
     // The Primitive interface must implement these two functions:
-    //      BBox bbox() const;
+    //      BBox bbox() const;21
     //      Trace hit(const Ray& ray) const;
     // Hence, you may call bbox() and hit() on any value of type Primitive.
     //
@@ -40,9 +41,128 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
     // Replace these
     BBox box;
     for(const Primitive& prim : primitives) box.enclose(prim.bbox());
-
+    
     new_node(box, 0, primitives.size(), 0, 0);
     root_idx = 0;
+   
+    std::queue<size_t>nodeQ;
+
+    while(!nodeQ.empty()){
+        size_t num = nodeQ.front();
+        nodeQ.pop();
+        Node n = nodes[num]; 
+        if (num >= nodes.size()) {
+            printf("node index out of range\n");
+            continue;
+        }
+        if (n.size == 1) continue;
+        std::vector<Primitive*>ps;
+        float SN = n.bbox.surface_area();
+        
+        float bestC = FLT_MAX;
+        int bestAxis = 4;
+        int bestLeftMost = -1;
+        int bestPartition = 0;
+        int possibleNum = 16;
+        for (int axis = 0; axis < 3; axis++){
+            float min_point = n.bbox.min[axis];
+            float max_point = n.bbox.max[axis];
+            float range = max_point - min_point;
+            
+            float gap = range / (float)possibleNum;
+            if (range <= 0.0) continue;
+            for (int potentialParti = 0; potentialParti < possibleNum; potentialParti++){
+                float threahold = gap * (float)potentialParti + min_point;
+                auto prim_start_iterator = primitives.begin() + n.start;
+                auto prim_end_iterator = primitives.begin() + n.start + n.size;
+                std::partition(prim_start_iterator, prim_end_iterator, 
+                [threahold, axis](const Primitive& P)
+                {
+                    return P.bbox().center()[axis] < threahold;
+                });
+                
+                size_t largestLeft = 0;
+                BBox left, right;
+                for(size_t i = n.start; i < n.start + n.size; i++){
+                    if (primitives[i].bbox().center()[axis] < threahold)
+                    {
+                        largestLeft = i;
+                        left.enclose(primitives[i].bbox());
+                    }
+                    else{
+                        right.enclose(primitives[i].bbox());
+                    }
+                }
+                float SA = left.surface_area();
+                float SB = right.surface_area();
+                float C = SA/SN * (largestLeft - n.start + 1) + SB/SN * (n.start + n.size - largestLeft) + 1;
+                if (C < bestC){
+                    bestAxis = axis;
+                    bestC = C;
+                    bestLeftMost = largestLeft;
+                    bestPartition = potentialParti;
+                }
+            }
+        }
+        float min_point = n.bbox.min[bestAxis];
+        float max_point = n.bbox.max[bestAxis];
+        float range = max_point - min_point;
+        float gap = range / (float)possibleNum;
+        float threahold = gap * (float)bestPartition + min_point;
+        auto prim_start_iterator = primitives.begin() + n.start;
+        auto prim_end_iterator = primitives.begin() + n.start + n.size;
+        std::partition(prim_start_iterator, prim_end_iterator, 
+                [threahold, bestAxis](const Primitive& P)
+                {
+                    return P.bbox().center()[bestAxis] < threahold;
+                });
+                
+               
+        BBox left, right;
+        size_t leftcnt=0, rightcnt=0;
+        for(size_t i = n.start; i < n.start + n.size; i++){
+            if (primitives[i].bbox().center()[bestAxis] < threahold)
+            {
+                left.enclose(primitives[i].bbox());
+                leftcnt++;
+            }
+            else{
+                right.enclose(primitives[i].bbox());
+                rightcnt++;
+            }
+        }
+
+        if (leftcnt == 0 || leftcnt == n.size)
+        {
+            for(size_t i = n.start; i < n.start + n.size; i++){
+                if (i < n.start + n.size/2)
+                {
+                    left.enclose(primitives[i].bbox());
+                    leftcnt++;
+                }
+                else{
+                    right.enclose(primitives[i].bbox());
+                    rightcnt++;
+                }
+            }
+            n.l = new_node(left, n.start, n.size/2, 0, 0);
+            n.r = new_node(right, n.start + n.size/2, n.size - n.size/2, 0, 0);
+            nodeQ.push(n.l);
+            nodeQ.push(n.r);
+        }
+        else{
+            n.l = new_node(left, n.start, leftcnt, 0, 0);
+            n.r = new_node(right, n.start + leftcnt, rightcnt, 0, 0);
+            nodeQ.push(n.l);
+            nodeQ.push(n.r);
+        }
+        
+
+
+    }
+    
+    
+
 }
 
 template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {

@@ -4,6 +4,8 @@
 
 namespace PT {
 
+
+
 BBox Triangle::bbox() const {
 
     // TODO (PathTracer): Task 2
@@ -13,8 +15,20 @@ BBox Triangle::bbox() const {
     // account for that here, or later on in BBox::intersect.
 
     BBox box;
+    Vec3 v_0 = vertex_list[v0].position;
+    Vec3 v_1 = vertex_list[v1].position;
+    Vec3 v_2 = vertex_list[v2].position;
+    box.min = Vec3(std::min({v_0.x,v_1.x, v_2.x}), std::min({v_0.y,v_1.y, v_2.y}), std::min({v_0.z,v_1.z, v_2.z}));
+    box.max = Vec3(std::max({v_0.x,v_1.x, v_2.x}), std::max({v_0.y,v_1.y, v_2.y}), std::max({v_0.z, v_1.z, v_2.z}));
+
+
     return box;
 }
+
+// static Trace RayLineHit (const Ray& ray, const Vec3& v0, const Vec3& v1, double &t){
+//     Vec3 lineVec = v1 - v0;
+
+// }
 
 Trace Triangle::hit(const Ray& ray) const {
 
@@ -28,13 +42,50 @@ Trace Triangle::hit(const Ray& ray) const {
 
     // TODO (PathTracer): Task 2
     // Intersect the ray with the triangle defined by the three vertices.
+    Vec3 e1 = v_1.position - v_0.position;
+    Vec3 s = ray.point - v_0.position;
+    Vec3 d = ray.dir;
+    Vec3 e2 = v_2.position - v_0.position;
+    //edge
+    if (std::abs(dot(cross(e1, d), e2)) < 0.00001f)
+    {
+        //do i need to add the closted pt on line segment?
+        Trace ret;
+        ret.origin = ray.point;
+        ret.hit = false;       // was there an intersection?
+        ret.distance = 0.0f;   // at what distance did the intersection occur?
+        ret.position = Vec3{}; // where was the intersection?
+        ret.normal = Vec3{};   // what was the surface normal at the intersection?
+                            // (this should be interpolated between the three vertex normals)
+        return ret;
+    }
 
+    
+
+    float u = -dot(cross(s, e2), d) / dot(cross(e1, d), e2);
+    float v = dot(cross(e1, d), s) / dot(cross(e1, d), e2);
+    float t = -dot(cross(s, e2), e1) / dot(cross(e1, d), e2);
+    (void) t;
+    if (u < 0 || v < 0 || 1 - u - v < 0){
+         Trace ret;
+        ret.origin = ray.point;
+        ret.hit = false;       // was there an intersection?
+        ret.distance = 0.0f;   // at what distance did the intersection occur?
+        ret.position = Vec3{}; // where was the intersection?
+        ret.normal = Vec3{};   // what was the surface normal at the intersection?
+                            // (this should be interpolated between the three vertex normals)
+        return ret;
+    }
+    
     Trace ret;
     ret.origin = ray.point;
-    ret.hit = false;       // was there an intersection?
-    ret.distance = 0.0f;   // at what distance did the intersection occur?
-    ret.position = Vec3{}; // where was the intersection?
-    ret.normal = Vec3{};   // what was the surface normal at the intersection?
+    ret.hit = true;       // was there an intersection?
+
+    //what is t?? I have no idea what two edges the barycentric use
+
+    ret.distance = t;   // at what distance did the intersection occur?
+    ret.position = u * e1 + v * e2 + v_0.position; // where was the intersection?
+    ret.normal = cross(e1, e2).normalize();   // what was the surface normal at the intersection?
                            // (this should be interpolated between the three vertex normals)
     return ret;
 }
