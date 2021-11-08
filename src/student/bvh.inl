@@ -1,8 +1,12 @@
-
+#include "../util/rand.h"
+#include "../lib/mathlib.h"
 #include "../rays/bvh.h"
 #include "debug.h"
 #include <stack>
 #include<queue>
+#include <ctime>
+#include <random>
+#include <thread>
 
 namespace PT {
 
@@ -187,18 +191,23 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
 
 }
 
-template<typename Primitive> bool BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeNum, Trace* closest) const{
+template<typename Primitive> bool BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeNum, Trace* closest, size_t level) const{
     if (primitives.size() == 0) return false;
     if (nodeNum >= nodes.size()){
         printf("hit out of bound\n"); return false;
     }
     Node node = nodes[nodeNum];
+    std::uniform_real_distribution<float> d(0.0f, 1.0f);
+    static thread_local std::mt19937 rng;
     if (node.is_leaf())
     {
+        // if ( d(rng) < (0.000005f))
+        // printf("%zu\n", level);
        if (node.size > 1) printf("multiple\n");
         Trace new_hit = primitives[node.start].hit(ray);
         if (new_hit.hit && new_hit.distance < closest->distance){
             *closest = new_hit;
+            
             return true;
         }
         return false;
@@ -214,9 +223,14 @@ template<typename Primitive> bool BVH<Primitive>::find_closest_hit(const Ray& ra
         bool h1 = nodes[node.l].bbox.hit(ray, hit1);
         bool h2 = nodes[node.r].bbox.hit(ray, hit2);
         
-        if (!h1 && h2) return find_closest_hit(ray, node.r, closest);
-        if (h1 && !h2) return find_closest_hit(ray, node.l, closest);
-        if (!h1 && !h2) return false;
+        if (!h1 && h2) return find_closest_hit(ray, node.r, closest, level + 1);
+        if (h1 && !h2) return find_closest_hit(ray, node.l, closest, level + 1);
+        if (!h1 && !h2) 
+        {
+            // if ( d(rng) < (0.000005f))
+            // printf("early %zu\n", level);
+            return false;
+        }
         size_t first, second;
         Vec2 hitsecond;
         if (hit1.x <= hit2.x)
@@ -230,13 +244,14 @@ template<typename Primitive> bool BVH<Primitive>::find_closest_hit(const Ray& ra
             second = node.l;
             hitsecond = hit1;
         }
-        find_closest_hit(ray, first, closest);
+        find_closest_hit(ray, first, closest, level + 1);
         if ((closest->hit && (hitsecond.x < closest->distance)) || !closest->hit)
         {
-            find_closest_hit(ray, second, closest);
+            find_closest_hit(ray, second, closest, level + 1);
             return true;
         }
-        // printf("end\n");
+        // if ( d(rng) < (0.000005f))
+        //     printf("skip %zu\n", level);
         return true;
     }
 
@@ -262,7 +277,7 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
     Trace ret;
     // float dist = 0.0f;
     ret.distance = FLT_MAX;
-    find_closest_hit(ray, 0, &ret);
+    find_closest_hit(ray, 0, &ret, 0);
     
     return ret;
    

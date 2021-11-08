@@ -22,7 +22,7 @@ public:
 
     BBox bbox() const;
     Trace hit(const Ray& ray) const;
-    bool find_closest_hit(const Ray& ray, size_t nodeNum, Trace* closest) const;
+    bool find_closest_hit(const Ray& ray, size_t nodeNum, Trace* closest, size_t level) const;
     BVH copy() const;
     size_t visualize(GL::Lines& lines, GL::Lines& active, size_t level, const Mat4& trans) const;
     // template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray, const BBox& bbox) const;

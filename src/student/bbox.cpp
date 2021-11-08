@@ -9,6 +9,7 @@ bool BBox::hit(const Ray& ray, Vec2& times) const {
     // If the ray intersected the bounding box within the range given by
     // [times.x,times.y], update times with the new intersection times.
     // Vec3 inv = ray.dir.inverse();
+    // ray.dir = ray.dir.normalize();
     float tx0 = std::min((min.x - ray.point.x) / ray.dir.x, (max.x - ray.point.x) / ray.dir.x);
     float tx1 = std::max((min.x - ray.point.x) / ray.dir.x, (max.x - ray.point.x) / ray.dir.x);
     float ty0 = std::min((min.y - ray.point.y) / ray.dir.y, (max.y - ray.point.y) / ray.dir.y);
@@ -23,6 +24,7 @@ bool BBox::hit(const Ray& ray, Vec2& times) const {
     float y1 = std::min(ty1, times.y);
     float y2 = std::min(tz1, times.y);
     if (x0 > y0 || x1 > y1 || x2 > y2) return false;
+    if (x0 > y1 || x0 > y2 || x1 > y0 || x1 > y2 || x2 > y0 ||x2 > y1) return false;
     times.x = std::max({x0, x1, x2});
     times.y = std::min({y0, y1, y2});
     // printf("hit\n");
