@@ -40,10 +40,12 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
 
     // Replace these
     BBox box;
+    
     for(const Primitive& prim : primitives) box.enclose(prim.bbox());
     
     new_node(box, 0, primitives.size(), 0, 0);
     root_idx = 0;
+    if (primitives.size() == 0) return;
     // printf("Primitive Num %zu\n", primitives.size());
     std::queue<size_t>nodeQ;
     nodeQ.push(root_idx);
@@ -76,7 +78,7 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
             float gap = range / (float)possibleNum;
             if (range <= 0.0) continue;
             //  if (num == 0) printf("Second %d\n", axis);
-            for (int potentialParti = 0; potentialParti < possibleNum; potentialParti++){
+            for (int potentialParti = 1; potentialParti < possibleNum; potentialParti++){
                 float threahold = gap * (float)potentialParti + min_point;
                 auto prim_start_iterator = primitives.begin() + nodes[num].start;
                 auto prim_end_iterator = primitives.begin() + nodes[num].start + nodes[num].size;
@@ -137,23 +139,26 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
                 rightcnt++;
             }
         }
-
+        
         if (leftcnt == 0 || leftcnt == n->size)
         {
+            BBox left1, right1;
+            leftcnt = 0;
+            rightcnt = 0;
             for(size_t i = nodes[num].start; i < nodes[num].start + nodes[num].size; i++){
                 if (i < nodes[num].start + nodes[num].size/2)
                 {
-                    left.enclose(primitives[i].bbox());
+                    left1.enclose(primitives[i].bbox());
                     leftcnt++;
                 }
                 else{
-                    right.enclose(primitives[i].bbox());
+                    right1.enclose(primitives[i].bbox());
                     rightcnt++;
                 }
             }
             
-            nodes[num].l = new_node(left, nodes[num].start, nodes[num].size/2, 0, 0);
-            nodes[num].r = new_node(right, nodes[num].start + nodes[num].size/2, nodes[num].size - nodes[num].size/2, 0, 0);
+            nodes[num].l = new_node(left1, nodes[num].start, nodes[num].size/2, 0, 0);
+            nodes[num].r = new_node(right1, nodes[num].start + nodes[num].size/2, nodes[num].size - nodes[num].size/2, 0, 0);
             // if (num == 0)
             //     printf("New node %zu %zu\n", nodes[num].l, nodes[num].r);
             nodeQ.push(nodes[num].l);
@@ -175,7 +180,7 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
     // for (size_t i = 0; i < nodes.size(); i++)
     // {
     //     Node n = nodes[i];
-    //     printf("Node %zu, left %zu, right %zu, size %zu\n", i, n.l, n.r, n.size);
+    //     printf("Node %zu, min %f %f %f, max %f %f %f, left %zu, right %zu, size %zu\n", i, n.bbox.min[0],n.bbox.min[1], n.bbox.min[2], n.bbox.max[0], n.bbox.max[1], n.bbox.max[2], n.l, n.r, n.size);
     // }
     
     
@@ -183,12 +188,14 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
 }
 
 template<typename Primitive> bool BVH<Primitive>::find_closest_hit(const Ray& ray, size_t nodeNum, Trace* closest) const{
+    if (primitives.size() == 0) return false;
     if (nodeNum >= nodes.size()){
         printf("hit out of bound\n"); return false;
     }
     Node node = nodes[nodeNum];
     if (node.is_leaf())
     {
+       if (node.size > 1) printf("multiple\n");
         Trace new_hit = primitives[node.start].hit(ray);
         if (new_hit.hit && new_hit.distance < closest->distance){
             *closest = new_hit;
@@ -199,26 +206,38 @@ template<typename Primitive> bool BVH<Primitive>::find_closest_hit(const Ray& ra
     else{
         Vec2 hit1;
         Vec2 hit2;
-        
+        hit1 = ray.dist_bounds;
+        hit2 = ray.dist_bounds;
+
+        // printf("recurse\n");
+        if (node.l == 0 || node.r == 0) printf("error!\n");
         bool h1 = nodes[node.l].bbox.hit(ray, hit1);
         bool h2 = nodes[node.r].bbox.hit(ray, hit2);
-        // if (h1)
-        //     printf("hit1 %f, %f\n", hit1.x, hit1.y);
-        // if (h2)
-        //     printf("hit2 %f, %f\n", hit2.x, hit2.y);
+        
         if (!h1 && h2) return find_closest_hit(ray, node.r, closest);
         if (h1 && !h2) return find_closest_hit(ray, node.l, closest);
         if (!h1 && !h2) return false;
-        size_t first = (hit1.x <= hit2.x) ? node.l : node.r;
-        size_t second = (hit1.x > hit2.x) ? node.l : node.r;
-        // Vec2 hitsecond = (hit1.x <= hit2.x) ? hit2 : hit1;
-        bool left = find_closest_hit(ray, first, closest);
-        // bool right = find_closest_hit(ray, f)
-        // if ((left && (hitsecond.x < closest->distance)) || !left)
-        // {
-            return left || find_closest_hit(ray, second, closest);
-        // }
-        // return left;
+        size_t first, second;
+        Vec2 hitsecond;
+        if (hit1.x <= hit2.x)
+        {
+            first = node.l;
+            second = node.r;
+            hitsecond = hit2;
+        }
+        else{
+            first = node.r;
+            second = node.l;
+            hitsecond = hit1;
+        }
+        find_closest_hit(ray, first, closest);
+        if ((closest->hit && (hitsecond.x < closest->distance)) || !closest->hit)
+        {
+            find_closest_hit(ray, second, closest);
+            return true;
+        }
+        // printf("end\n");
+        return true;
     }
 
 }
@@ -243,23 +262,16 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
     Trace ret;
     // float dist = 0.0f;
     ret.distance = FLT_MAX;
-    bool hit = find_closest_hit(ray, 0, &ret);
-    if (!hit){
-       ret.origin = ray.point;
-        ret.hit = false;       // was there an intersection?
-        ret.distance = 0.0f;   // at what distance did the intersection occur?
-        ret.position = Vec3(); // where was the intersection?
-        ret.normal = Vec3();   // what was the surface normal at the intersection? 
-        return ret;
-    }
-    else{
-       
-        return ret;
-    }
+    find_closest_hit(ray, 0, &ret);
+    
+    return ret;
+   
+
 }
 
 template<typename Primitive>
 BVH<Primitive>::BVH(std::vector<Primitive>&& prims, size_t max_leaf_size) {
+    
     build(std::move(prims), max_leaf_size);
 }
 
