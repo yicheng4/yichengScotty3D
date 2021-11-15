@@ -28,7 +28,7 @@ Spectrum Pathtracer::trace_pixel(size_t x, size_t y) {
     auto [emissive, reflected] = trace(ray);
     if (RNG::coin_flip(0.0005f))
         log_ray(ray, 3.0f);
-    return emissive + reflected;
+    return emissive + reflected; 
 }
 
 Spectrum Pathtracer::sample_indirect_lighting(const Shading_Info& hit) {
@@ -39,21 +39,37 @@ Spectrum Pathtracer::sample_indirect_lighting(const Shading_Info& hit) {
     // lighting at our ray intersection point.
 
     // (1) Randomly sample a new ray direction from the BSDF distribution using BSDF::scatter().
-
+    Scatter s = hit.bsdf.scatter(hit.out_dir);
+    s.transform(hit.object_to_world);
     // (2) Create a new world-space ray and call Pathtracer::trace() to get incoming light. You
     // should modify time_bounds so that the ray does not intersect at time = 0. Remember to
     // set the new depth value.
+    Ray ray;
+    ray.dist_bounds[0] = EPS_F ;
+    ray.dist_bounds[1] = hit.depth;
+    ray.point = hit.pos;
+    ray.dir = (s.direction).normalize();
+    auto [emissive, reflected] = trace(ray);
 
     // (3) Add contribution due to incoming light scaled by BSDF attenuation. Whether you
     // compute the BSDF scattering PDF should depend on if the BSDF is a discrete distribution
     // (see BSDF::is_discrete()).
 
+    if (!hit.bsdf.is_discrete())
+    {
+        s.transform(hit.world_to_object);
+        reflected += s.attenuation * hit.bsdf.pdf(hit.out_dir, s.direction.normalize());
+    }
+    else{
+        reflected += s.attenuation;
+    }
+
     // You should only use the indirect component of incoming light (the second value returned
     // by Pathtracer::trace()), as the direct component will be computed in
     // Pathtracer::sample_direct_lighting().
 
-    Spectrum radiance;
-    return radiance;
+    
+    return reflected;
 }
 
 Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
@@ -71,7 +87,24 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
     // Pathtracer::sample_indirect_lighting(), but instead accumulates the emissive component of
     // incoming light (the first value returned by Pathtracer::trace()). Note that since we only
     // want emissive, we can trace a ray with depth = 0.
+    Scatter s = hit.bsdf.scatter(hit.out_dir);
+    s.transform(hit.object_to_world);
+    Ray ray;
+    ray.dist_bounds[0] = 0.0f;
+    ray.dist_bounds[1] = hit.depth;
+    ray.point = hit.pos;
+    ray.dir = (s.direction);
+    auto [emissive, reflected] = trace(ray);
 
+    if (!hit.bsdf.is_discrete())
+    {
+        s.transform(hit.world_to_object);
+        reflected += s.attenuation * hit.bsdf.pdf(hit.out_dir, s.direction.normalize());
+    }
+    else{
+        emissive += s.attenuation;
+    }
+    
     // TODO (PathTrace): Task 6
 
     // For task 6, we want to upgrade our direct light sampling procedure to also
@@ -94,7 +127,7 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
     // BSDF::pdf(), and Pathtracer::area_lights_pdf() to compute the proper weighting.
     // What is the PDF of our sample, given it could have been produced from either source?
 
-    return radiance;
+    return radiance + emissive;
 }
 
 std::pair<Spectrum, Spectrum> Pathtracer::trace(const Ray& ray) {
@@ -122,14 +155,14 @@ std::pair<Spectrum, Spectrum> Pathtracer::trace(const Ray& ray) {
 
     // TODO (PathTracer): Task 4
     // You will want to change the default normal_colors in debug.h, or delete this early out.
-    if(debug_data.normal_colors) return {Spectrum::direction(result.normal), {}};
+    // if(debug_data.normal_colors) return {Spectrum::direction(result.normal), {}};
 
     // If the BSDF is emissive, stop tracing and return the emitted light
     Spectrum emissive = bsdf.emissive();
     if(emissive.luma() > 0.0f) return {emissive, {}};
 
     // If the ray has reached maximum depth, stop tracing
-    if(ray.depth == 0) return {};
+    if(ray.depth == 0) return {emissive, {}};
 
     // Set up shading information
     Mat4 object_to_world = Mat4::rotate_to(result.normal);
@@ -140,7 +173,7 @@ std::pair<Spectrum, Spectrum> Pathtracer::trace(const Ray& ray) {
                         out_dir, result.normal,   ray.depth};
 
     // Sample and return light reflected through the intersection
-    return {{}, sample_direct_lighting(hit) + sample_indirect_lighting(hit)};
+    return {emissive, sample_direct_lighting(hit) + sample_indirect_lighting(hit)};
 }
 
 } // namespace PT
