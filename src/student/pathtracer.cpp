@@ -40,15 +40,15 @@ Spectrum Pathtracer::sample_indirect_lighting(const Shading_Info& hit) {
 
     // (1) Randomly sample a new ray direction from the BSDF distribution using BSDF::scatter().
     Scatter s = hit.bsdf.scatter(hit.out_dir);
-    s.transform(hit.object_to_world);
     // (2) Create a new world-space ray and call Pathtracer::trace() to get incoming light. You
     // should modify time_bounds so that the ray does not intersect at time = 0. Remember to
     // set the new depth value.
     Ray ray;
     ray.dist_bounds[0] = EPS_F ;
-    ray.dist_bounds[1] = hit.depth;
+    ray.dist_bounds[1] = FLT_MAX;
     ray.point = hit.pos;
-    ray.dir = (s.direction).normalize();
+    ray.depth = hit.depth - 1;
+    ray.dir = hit.object_to_world.rotate(s.direction);
     auto [emissive, reflected] = trace(ray);
 
     // (3) Add contribution due to incoming light scaled by BSDF attenuation. Whether you
@@ -57,11 +57,11 @@ Spectrum Pathtracer::sample_indirect_lighting(const Shading_Info& hit) {
 
     if (!hit.bsdf.is_discrete())
     {
-        s.transform(hit.world_to_object);
-        reflected += s.attenuation * hit.bsdf.pdf(hit.out_dir, s.direction.normalize());
+        // ray.dir = hit.world_to_object.rotate(s.direction);
+        reflected *= s.attenuation *(1.0f/ hit.bsdf.pdf(hit.out_dir, s.direction));
     }
     else{
-        reflected += s.attenuation;
+        reflected *= s.attenuation;
     }
 
     // You should only use the indirect component of incoming light (the second value returned
@@ -88,21 +88,21 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
     // incoming light (the first value returned by Pathtracer::trace()). Note that since we only
     // want emissive, we can trace a ray with depth = 0.
     Scatter s = hit.bsdf.scatter(hit.out_dir);
-    s.transform(hit.object_to_world);
     Ray ray;
-    ray.dist_bounds[0] = 0.0f;
-    ray.dist_bounds[1] = hit.depth;
+    ray.dist_bounds[0] = EPS_F;
+    ray.dist_bounds[1] = FLT_MAX;
     ray.point = hit.pos;
-    ray.dir = (s.direction);
+    ray.depth = 0;
+    ray.dir = hit.object_to_world.rotate(s.direction);
     auto [emissive, reflected] = trace(ray);
 
     if (!hit.bsdf.is_discrete())
     {
-        s.transform(hit.world_to_object);
-        reflected += s.attenuation * hit.bsdf.pdf(hit.out_dir, s.direction.normalize());
+        // ray.dir = hit.world_to_object.rotate(s.direction);
+        emissive *= s.attenuation *(1.0f/ hit.bsdf.pdf(hit.out_dir, s.direction));
     }
     else{
-        emissive += s.attenuation;
+        emissive *= s.attenuation;
     }
     
     // TODO (PathTrace): Task 6
