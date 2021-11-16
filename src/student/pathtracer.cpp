@@ -87,22 +87,51 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
     // Pathtracer::sample_indirect_lighting(), but instead accumulates the emissive component of
     // incoming light (the first value returned by Pathtracer::trace()). Note that since we only
     // want emissive, we can trace a ray with depth = 0.
-    Scatter s = hit.bsdf.scatter(hit.out_dir);
-    Ray ray;
-    ray.dist_bounds[0] = EPS_F;
-    ray.dist_bounds[1] = FLT_MAX;
-    ray.point = hit.pos;
-    ray.depth = 0;
-    ray.dir = hit.object_to_world.rotate(s.direction);
-    auto [emissive, reflected] = trace(ray);
 
     if (!hit.bsdf.is_discrete())
     {
         // ray.dir = hit.world_to_object.rotate(s.direction);
+        Scatter s = hit.bsdf.scatter(hit.out_dir);
+        Ray ray;
+        ray.dist_bounds[0] = EPS_F;
+        ray.dist_bounds[1] = FLT_MAX;
+        ray.point = hit.pos;
+        ray.depth = 0;
+        ray.dir = hit.object_to_world.rotate(s.direction);
+        auto [emissive, reflected] = trace(ray);
+
         emissive *= s.attenuation *(1.0f/ hit.bsdf.pdf(hit.out_dir, s.direction));
+        return radiance + emissive;
     }
     else{
-        emissive *= s.attenuation;
+        if (RNG::coin_flip(0.5f)){
+            Scatter s = hit.bsdf.scatter(hit.out_dir);
+            Ray ray;
+            ray.dist_bounds[0] = EPS_F;
+            ray.dist_bounds[1] = FLT_MAX;
+            ray.point = hit.pos;
+            ray.depth = 0;
+            ray.dir = hit.object_to_world.rotate(s.direction);
+            auto [emissive, reflected] = trace(ray);
+            emissive *= s.attenuation;
+            return radiance + emissive;
+        }
+        else{
+            Vec3 sampleV = sample_area_lights(hit.out_dir);
+            Ray ray;
+            ray.dist_bounds[0] = EPS_F;
+            ray.dist_bounds[1] = FLT_MAX;
+            ray.point = hit.pos;
+            ray.depth = 0;
+            ray.dir = hit.object_to_world.rotate(sampleV);
+            auto [emissive, reflected] = trace(ray);
+            emissive *= area_lights_pdf(hit.out_dir, sampleV);
+            return radiance + emissive;
+
+        }
+        
+        
+        
     }
     
     // TODO (PathTrace): Task 6
@@ -127,7 +156,7 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
     // BSDF::pdf(), and Pathtracer::area_lights_pdf() to compute the proper weighting.
     // What is the PDF of our sample, given it could have been produced from either source?
 
-    return radiance + emissive;
+    return radiance;
 }
 
 std::pair<Spectrum, Spectrum> Pathtracer::trace(const Ray& ray) {
