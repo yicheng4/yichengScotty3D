@@ -21,8 +21,26 @@ Vec3 Sphere::Uniform::sample() const {
 
     // Generate a uniformly random point on the unit sphere.
     // Tip: start with Hemisphere::Uniform
+    float Xi1 = RNG::unit();
+    float Xi2 = RNG::unit();
 
-    return Vec3{};
+    float theta = std::acos(Xi1);
+    float phi = 2.0f * PI_F * Xi2;
+
+    float xs = std::sin(theta) * std::cos(phi);
+    float ys;
+    if (RNG::coin_flip(0.5f))
+        ys = std::cos(theta);
+    else
+    {
+        ys = -std::cos(theta);
+    }
+    
+    float zs = std::sin(theta) * std::sin(phi);
+
+    return Vec3(xs, ys, zs);
+    // return Vec3{};
+
 }
 
 Sphere::Image::Image(const HDR_Image& image) {
@@ -35,7 +53,22 @@ Sphere::Image::Image(const HDR_Image& image) {
     const auto [_w, _h] = image.dimension();
     w = _w;
     h = _h;
-}
+
+    for(size_t i = 0; i < (size_t) (w * h); i++)
+    {
+        size_t wi =std::mod(i, h);
+        size_t hi = std::floor((float)i / (float)h);
+        Spectrum pix = image.at(wi, (size_t)h - hi - 1);
+        float pdfNew = pix.luma() * std::sin(hi * PI_F / h);  
+        _pdf.push_back(pdfNew);
+        if (_cdf.size() == 0){
+            _cdf.push_back(pdfNew);
+        }
+        else 
+            _cdf.push_back(_cdf[_cdf.size() - 1] + pdfNew);
+        total += pdfNew
+    } 
+}s
 
 Vec3 Sphere::Image::sample() const {
 
@@ -44,7 +77,10 @@ Vec3 Sphere::Image::sample() const {
     // Use your importance sampling data structure to generate a sample direction.
     // Tip: std::upper_bound
 
+    
     return Vec3{};
+
+    
 }
 
 float Sphere::Image::pdf(Vec3 dir) const {
@@ -53,7 +89,18 @@ float Sphere::Image::pdf(Vec3 dir) const {
 
     // What is the PDF of this distribution at a particular direction?
 
-    return 0.0f;
+    //theta phi flipped from writeup
+    float theta = std::acos(dir.y);
+    float sinphi = dir.z/(std::sin(theta));
+    float cosphi = dir.x/(std::cos(theta));
+    float phi = std::atan2(sinphi, cosphi);
+
+    float wid = phi / (2.0f * PI_F) * w;
+    float hei = theta / PI_F * h;
+    
+
+    return _pdf[std::round(wid+ w*hei)] / total * w * h / (2 * PI_F * PI_F std::sin(phi));
+    
 }
 
 Vec3 Point::sample() const {

@@ -88,7 +88,7 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
     // incoming light (the first value returned by Pathtracer::trace()). Note that since we only
     // want emissive, we can trace a ray with depth = 0.
 
-    if (!hit.bsdf.is_discrete())
+    if (hit.bsdf.is_discrete())
     {
         // ray.dir = hit.world_to_object.rotate(s.direction);
         Scatter s = hit.bsdf.scatter(hit.out_dir);
@@ -100,7 +100,7 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
         ray.dir = hit.object_to_world.rotate(s.direction);
         auto [emissive, reflected] = trace(ray);
 
-        emissive *= s.attenuation *(1.0f/ hit.bsdf.pdf(hit.out_dir, s.direction));
+        emissive *= s.attenuation;
         return radiance + emissive;
     }
     else{
@@ -113,19 +113,22 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
             ray.depth = 0;
             ray.dir = hit.object_to_world.rotate(s.direction);
             auto [emissive, reflected] = trace(ray);
-            emissive *= s.attenuation;
+            float newPdf = (hit.bsdf.pdf(hit.out_dir, s.direction) + area_lights_pdf(hit.pos, ray.dir)) / 2.0f;
+            emissive *= s.attenuation * (1.0f/ newPdf);
             return radiance + emissive;
         }
         else{
-            Vec3 sampleV = sample_area_lights(hit.out_dir);
+            Vec3 sampleV = sample_area_lights(hit.pos);
             Ray ray;
             ray.dist_bounds[0] = EPS_F;
             ray.dist_bounds[1] = FLT_MAX;
             ray.point = hit.pos;
             ray.depth = 0;
-            ray.dir = hit.object_to_world.rotate(sampleV);
+            ray.dir = sampleV;
+            Vec3 objSampleV = hit.world_to_object.rotate(sampleV);
             auto [emissive, reflected] = trace(ray);
-            emissive *= area_lights_pdf(hit.out_dir, sampleV);
+            float newPdf = (hit.bsdf.pdf(hit.out_dir, objSampleV) + area_lights_pdf(hit.pos, sampleV)) / 2.0f;
+            emissive *= hit.bsdf.evaluate(hit.out_dir, objSampleV) * (1.0f/ newPdf);
             return radiance + emissive;
 
         }
