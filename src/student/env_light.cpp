@@ -38,15 +38,23 @@ Spectrum Env_Map::evaluate(Vec3 dir) const {
     float sinphi = dir.z/(std::sin(theta));
     float cosphi = dir.x/(std::cos(theta));
     float phi = std::atan2(sinphi, cosphi);
-    float height = image.h * phi / PI_F;
-    float width = image.w * theta / 2.0f / PI_F;
+    const auto [_w, _h] = image.dimension();
+    size_t w = (size_t) _w;
+    size_t h = (size_t) _h;
+    float height = h * phi / PI_F;
+    float width = w * theta / 2.0f / PI_F;
     size_t hsmall = std::floor(height);
     size_t wsmall = std::floor(width);
+    if (hsmall + 1>= h || wsmall + 1>= w)
+        return Spectrum{};
     float hdelta = (float)height - (float)hsmall;
-    float wdelta = (float)width - (float)wsmall
+    float wdelta = (float)width - (float)wsmall;
+    return (1-wdelta) * ((1-hdelta)*image.at(wsmall, hsmall) + hdelta*image.at(wsmall, hsmall + 1)) +
+        (wdelta) * ((1-hdelta)*image.at(wsmall+1, hsmall) + hdelta*image.at(wsmall+1, hsmall + 1));
+
     
 
-    return Spectrum{};
+    
 }
 
 Vec3 Env_Hemisphere::sample() const {

@@ -56,7 +56,7 @@ Sphere::Image::Image(const HDR_Image& image) {
 
     for(size_t i = 0; i < (size_t) (w * h); i++)
     {
-        size_t wi =std::mod(i, h);
+        size_t wi =(i % h);
         size_t hi = std::floor((float)i / (float)h);
         Spectrum pix = image.at(wi, (size_t)h - hi - 1);
         float pdfNew = pix.luma() * std::sin(hi * PI_F / h);  
@@ -66,9 +66,9 @@ Sphere::Image::Image(const HDR_Image& image) {
         }
         else 
             _cdf.push_back(_cdf[_cdf.size() - 1] + pdfNew);
-        total += pdfNew
+        total += pdfNew;
     } 
-}s
+}
 
 Vec3 Sphere::Image::sample() const {
 
@@ -76,9 +76,24 @@ Vec3 Sphere::Image::sample() const {
 
     // Use your importance sampling data structure to generate a sample direction.
     // Tip: std::upper_bound
-
+    float cdfPos = RNG::unit() * total;
+    auto start_iterator = _cdf.begin();
+    auto end_iterator = _cdf.end();
+    auto find_iterator = std::upper_bound(start_iterator, end_iterator, cdfPos);
+    size_t index = (size_t) (find_iterator - start_iterator);
+    if (index >= _cdf.size())
+        return Vec3{};
+    size_t wi =(index % h);
+    size_t hi = std::floor((float)index / (float)h);
+    float theta = wi * (2.0f * PI_F) / w;
+    float phi = hi * PI_F / h;
+    float xs = std::sin(theta) * std::cos(phi);
+    float ys = std::cos(theta);
+   
     
-    return Vec3{};
+    float zs = std::sin(theta) * std::sin(phi);
+
+    return Vec3(xs, ys, zs);
 
     
 }
@@ -99,7 +114,7 @@ float Sphere::Image::pdf(Vec3 dir) const {
     float hei = theta / PI_F * h;
     
 
-    return _pdf[std::round(wid+ w*hei)] / total * w * h / (2 * PI_F * PI_F std::sin(phi));
+    return _pdf[std::round(wid+ w*hei)] / total * w * h / (2 * PI_F * PI_F * std::sin(phi));
     
 }
 
