@@ -8,7 +8,7 @@ static Vec3 reflect(Vec3 dir) {
 
     // TODO (PathTracer): Task 5
     // Return reflection of dir about the surface normal (0,1,0).
-    return Vec3{};
+    return Vec3(-dir.x, dir.y, -dir.z);
 }
 
 static Vec3 refract(Vec3 out_dir, float index_of_refraction, bool& was_internal) {
@@ -18,7 +18,29 @@ static Vec3 refract(Vec3 out_dir, float index_of_refraction, bool& was_internal)
     // Return the refracted direction. Set was_internal to true if
     // refraction does not occur due to total internal reflection,
     // and false otherwise.
-
+    float cosThetaI = out_dir.y;
+    float ni, nt;
+    if (cosThetaI > 0.0f)
+    {
+        ni = 1.0f;
+        nt = index_of_refraction;
+    }
+    else{
+        nt = 1.0f;
+        ni = index_of_refraction;
+    }
+    float cosThetaTSquare = (1 - (ni / nt) 
+         * (ni / nt) * (1 - cosThetaI*cosThetaI));
+    if (cosThetaTSquare < 0.0f)
+    { 
+        was_internal = true;
+        return Vec3{};
+    }
+    float cosThetaT = std::sqrt(cosThetaTSquare);
+    if (out_dir.y >= 0.0f)
+    {
+        return Vec3(-out_dir.x * ni / nt, -cosThetaT, -out_dir.z * ni / nt).normalize();
+    }
     // When dot(out_dir,normal=(0,1,0)) is positive, then out_dir corresponds to a
     // ray exiting the surface into vaccum (ior = 1). However, note that
     // you should actually treat this case as _entering_ the surface, because
@@ -26,7 +48,7 @@ static Vec3 refract(Vec3 out_dir, float index_of_refraction, bool& was_internal)
     // and to do so you can simply find the direction that out_dir would refract
     // _to_, as refraction is symmetric.
 
-    return Vec3{};
+    return Vec3(-out_dir.x * ni / nt, cosThetaT, -out_dir.z * ni / nt).normalize();
 }
 
 Scatter BSDF_Lambertian::scatter(Vec3 out_dir) const {
@@ -73,8 +95,14 @@ Scatter BSDF_Mirror::scatter(Vec3 out_dir) const {
     Vec3 in_dir = Vec3(-out_dir.x, out_dir.y, -out_dir.z);
     Scatter ret;
     ret.direction = in_dir;
-    ret.attenuation = Spectrum();
+    ret.attenuation = Spectrum(1.0f);
     return ret;
+}
+static float fresenel(float ni, float nt, Vec3 out_dir)
+{
+    float r0 = ((ni-nt)/(ni+nt)) * ((ni-nt)/(ni+nt));
+    float cosTheta = std::abs(out_dir.y);
+    return r0 + (1-r0) * std::pow((1 - cosTheta),5);
 }
 
 Scatter BSDF_Glass::scatter(Vec3 out_dir) const {
@@ -87,19 +115,54 @@ Scatter BSDF_Glass::scatter(Vec3 out_dir) const {
 
     // Be wary of your eta1/eta2 ratio - are you entering or leaving the surface?
     // What happens upon total internal reflection?
+    
+    Vec3 reflect_dir = reflect(out_dir);
+    bool was_internal = false;
+    Vec3 in_dir = refract(out_dir, index_of_refraction, was_internal);
+    (void) in_dir;
+    if (was_internal)
+    {
+        Scatter ret;
+        ret.direction = reflect_dir;
+        ret.attenuation = reflectance;
+        return ret;
+    }
+    float f, ni, nt;
+    if (out_dir.y  > 0.0f)
+    {
+        ni = 1.0f;
+        nt = index_of_refraction;
+    }
+    else{
+        nt = 1.0f;
+        ni = index_of_refraction;
+    }
 
+    f = fresenel(ni, nt, out_dir);
+    
+    if (RNG::coin_flip(f))
+    {
+        Scatter ret;
+        ret.direction = reflect_dir;
+        ret.attenuation = reflectance;
+        return ret;
+    }
+    
     Scatter ret;
-    ret.direction = Vec3();
-    ret.attenuation = Spectrum{};
+    ret.direction = in_dir;
+    ret.attenuation = transmittance * ni / nt;
+    
     return ret;
+
+    
 }
+
 
 Scatter BSDF_Refract::scatter(Vec3 out_dir) const {
 
     // OPTIONAL (PathTracer): Task 5
 
     // When debugging BSDF_Glass, it may be useful to compare to a pure-refraction BSDF
-
     Scatter ret;
     ret.direction = Vec3();
     ret.attenuation = Spectrum{};
