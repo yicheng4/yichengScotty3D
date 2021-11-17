@@ -26,8 +26,7 @@ Spectrum Pathtracer::trace_pixel(size_t x, size_t y) {
 
     // Pathtracer::trace() returns the incoming light split into emissive and reflected components.
     auto [emissive, reflected] = trace(ray);
-    if (RNG::coin_flip(0.0005f))
-        log_ray(ray, 3.0f);
+    
     return emissive + reflected; 
 }
 
@@ -171,9 +170,10 @@ std::pair<Spectrum, Spectrum> Pathtracer::trace(const Ray& ray) {
     // Trace ray into scene.
     Trace result = scene.hit(ray);
     if(!result.hit) {
-
+        
         // If no surfaces were hit, sample the environemnt map.
         if(env_light.has_value()) {
+            
             return {env_light.value().evaluate(ray.dir), {}};
         }
         return {};
@@ -203,8 +203,11 @@ std::pair<Spectrum, Spectrum> Pathtracer::trace(const Ray& ray) {
 
     Shading_Info hit = {bsdf,    world_to_object, object_to_world, result.position,
                         out_dir, result.normal,   ray.depth};
-
+    if (RNG::coin_flip(0.00005f))
+        log_ray(ray, 3.0f);
     // Sample and return light reflected through the intersection
+    
+        // printf("%f %f %f\n", emissive.r, emissive.g, emissive.b);
     return {emissive, sample_direct_lighting(hit) + sample_indirect_lighting(hit)};
 }
 

@@ -53,11 +53,14 @@ Sphere::Image::Image(const HDR_Image& image) {
     const auto [_w, _h] = image.dimension();
     w = _w;
     h = _h;
-
+    total = 0.0f;
     for(size_t i = 0; i < (size_t) (w * h); i++)
     {
-        size_t wi =(i % h);
-        size_t hi = std::floor((float)i / (float)h);
+        size_t wi =(i % w);
+        size_t hi = std::floor((float)i / (float)w);
+        if (i == 0) hi = 0;
+        if (h == hi) hi -= 1.0f;
+    
         Spectrum pix = image.at(wi, (size_t)h - hi - 1);
         float pdfNew = pix.luma() * std::sin(hi * PI_F / h);  
         _pdf.push_back(pdfNew);
@@ -83,14 +86,12 @@ Vec3 Sphere::Image::sample() const {
     size_t index = (size_t) (find_iterator - start_iterator);
     if (index >= _cdf.size())
         return Vec3{};
-    size_t wi =(index % h);
-    size_t hi = std::floor((float)index / (float)h);
+    size_t wi =(index % w);
+    size_t hi = std::floor((float)index / (float)w);
     float theta = wi * (2.0f * PI_F) / w;
     float phi = hi * PI_F / h;
-    float xs = std::sin(theta) * std::cos(phi);
-    float ys = std::cos(theta);
-   
-    
+    float xs = std::sin(phi) * std::cos(theta);
+    float ys = std::cos(phi);
     float zs = std::sin(theta) * std::sin(phi);
 
     return Vec3(xs, ys, zs);
@@ -104,15 +105,15 @@ float Sphere::Image::pdf(Vec3 dir) const {
 
     // What is the PDF of this distribution at a particular direction?
 
-    //theta phi flipped from writeup
-    float theta = std::acos(dir.y);
-    float sinphi = dir.z/(std::sin(theta));
-    float cosphi = dir.x/(std::cos(theta));
-    float phi = std::atan2(sinphi, cosphi);
 
-    float wid = phi / (2.0f * PI_F) * w;
-    float hei = theta / PI_F * h;
-    
+    float phi = std::acos(dir.y);
+
+    float theta = std::atan2(dir.z, dir.x);
+
+    float hei = phi / PI_F * h;
+    float wid = theta / 2.0f / PI_F * (float)w;
+    if (wid < 0.0f) wid +=  (float)w;
+
 
     return _pdf[std::round(wid+ w*hei)] / total * w * h / (2 * PI_F * PI_F * std::sin(phi));
     

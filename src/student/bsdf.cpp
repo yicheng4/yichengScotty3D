@@ -95,7 +95,7 @@ Scatter BSDF_Mirror::scatter(Vec3 out_dir) const {
     Vec3 in_dir = Vec3(-out_dir.x, out_dir.y, -out_dir.z);
     Scatter ret;
     ret.direction = in_dir;
-    ret.attenuation = Spectrum(1.0f);
+    ret.attenuation = reflectance;
     return ret;
 }
 static float fresenel(float ni, float nt, Vec3 out_dir)
@@ -150,7 +150,7 @@ Scatter BSDF_Glass::scatter(Vec3 out_dir) const {
     
     Scatter ret;
     ret.direction = in_dir;
-    ret.attenuation = transmittance * ni / nt;
+    ret.attenuation = transmittance * ni / nt * ni / nt;
     
     return ret;
 
