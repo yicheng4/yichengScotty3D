@@ -336,13 +336,21 @@ Spectrum Pathtracer::point_lighting(const Shading_Info& hit) {
         Spectrum attenuation = hit.bsdf.evaluate(hit.out_dir, in_dir);
         if(attenuation.luma() == 0.0f) continue;
 
+       
         Ray shadow_ray(hit.pos, sample.direction, Vec2{EPS_F, sample.distance - EPS_F});
 
         Trace shadow = scene.hit(shadow_ray);
+        (void) shadow;
         if(!shadow.hit) {
             radiance += attenuation * sample.radiance;
+            printf("NO\n");
         }
+        // else{
+        //     printf("yes\n");
+        // }
     }
+    if (radiance.r > 0.0f)
+            printf("radiance%f %f %f\n", radiance.r, radiance.g, radiance.b);
 
     return radiance;
 }

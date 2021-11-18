@@ -34,16 +34,16 @@ Spectrum Env_Map::evaluate(Vec3 dir) const {
     // between the 4 nearest pixels.
 
     
-    float theta = std::acos(dir.y);
+    float phi = std::acos(dir.y);
     // float sinphi = dir.z/(std::sin(theta));
     // float cosphi = dir.x/(std::cos(theta));
-    float phi = std::atan2(dir.z, dir.x);
-    if (phi < 0.0f) phi += 2.0f * PI_F;
+    float theta = std::atan2(dir.z, dir.x);
+    if (theta < 0.0f) theta += 2.0f * PI_F;
     const auto [_w, _h] = image.dimension();
     size_t w = (size_t) _w;
     size_t h = (size_t) _h;
-    float height = h * (1.0f - theta / PI_F);
-    float width = w * phi / 2.0f / PI_F;
+    float height = h * (1.0f - phi / PI_F);
+    float width = w * theta / 2.0f / PI_F;
     if (std::floor(height) < 0.0f || std::floor(width) < 0.0f){
         return Spectrum{};
     }

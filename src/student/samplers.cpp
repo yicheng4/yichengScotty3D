@@ -109,6 +109,7 @@ float Sphere::Image::pdf(Vec3 dir) const {
     float phi = std::acos(dir.y);
 
     float theta = std::atan2(dir.z, dir.x);
+    if (theta < 0.0f) theta += 2.0*PI_F;
 
     float hei = phi / PI_F * h;
     float wid = theta / 2.0f / PI_F * (float)w;

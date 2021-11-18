@@ -44,7 +44,7 @@ Trace Triangle::hit(const Ray& ray) const {
     Vec3 d = ray.dir;
     Vec3 e2 = v_2.position - v_0.position;
     //edge
-    if (std::abs(dot(cross(e1, d), e2)) < 0.00001f)
+    if (std::abs(dot(cross(e1, d), e2)) < EPS_F)
     {
         //do i need to add the closted pt on line segment?
         Trace ret;
@@ -63,7 +63,7 @@ Trace Triangle::hit(const Ray& ray) const {
     float v = dot(cross(e1, d), s) / dot(cross(e1, d), e2);
     float t = -dot(cross(s, e2), e1) / dot(cross(e1, d), e2);
     (void) t;
-    if (u < 0 || v < 0 || 1 - u - v < 0){
+    if (u < 0.0f || v < 0.0f || 1.0f - u - v < 0.0f || u > 1.0f || v > 1.0f || 1 - u - v > 1.0f){
          Trace ret;
         ret.origin = ray.point;
         ret.hit = false;       // was there an intersection?
@@ -77,11 +77,11 @@ Trace Triangle::hit(const Ray& ray) const {
     Trace ret;
     ret.origin = ray.point;
     ret.hit = true;       // was there an intersection?
-
+    
     //what is t?? I have no idea what two edges the barycentric use
-
+  
     ret.distance = t;   // at what distance did the intersection occur?
-    ret.position = u * e1 + v * e2 + v_0.position; // where was the intersection?
+    ret.position = ray.at(t); // where was the intersection?
     ret.normal = cross(e1, e2).normalize();   // what was the surface normal at the intersection?
                            // (this should be interpolated between the three vertex normals)
     return ret;
