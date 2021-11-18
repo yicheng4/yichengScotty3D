@@ -104,7 +104,7 @@ static float fresenel(float ni, float nt, Vec3 out_dir)
 {
     float r0 = ((ni-nt)/(ni+nt)) * ((ni-nt)/(ni+nt));
     float cosTheta = std::abs(out_dir.y);
-    return r0 + (1.0f-r0) * std::pow((1 - cosTheta),5);
+    return r0 + (1.0f-r0) * std::pow((1.0f - cosTheta),5);
 }
 
 Scatter BSDF_Glass::scatter(Vec3 out_dir) const {

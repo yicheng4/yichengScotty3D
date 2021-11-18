@@ -203,7 +203,7 @@ template<typename Primitive> bool BVH<Primitive>::find_closest_hit(const Ray& ra
     {
         // if ( d(rng) < (0.000005f))
         // printf("%zu\n", level);
-       if (node.size > 1) printf("multiple\n");
+    //    if (node.size > 1) printf("multiple\n");
         Trace new_hit = primitives[node.start].hit(ray);
         if (new_hit.hit && new_hit.distance < closest->distance){
             *closest = new_hit;
