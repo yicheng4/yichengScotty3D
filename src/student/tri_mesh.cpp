@@ -43,7 +43,7 @@ Trace Triangle::hit(const Ray& ray) const {
     Vec3 s = ray.point - v_0.position;
     Vec3 d = ray.dir;
     Vec3 e2 = v_2.position - v_0.position;
-    //edge
+    
     if (std::abs(dot(cross(e1, d), e2)) < EPS_F)
     {
         //do i need to add the closted pt on line segment?
@@ -73,6 +73,16 @@ Trace Triangle::hit(const Ray& ray) const {
                             // (this should be interpolated between the three vertex normals)
         return ret;
     }
+    if (t < 0.0f || ray.dist_bounds.x > t || t > ray.dist_bounds.y){
+        Trace ret;
+        ret.origin = ray.point;
+        ret.hit = false;       // was there an intersection?
+        ret.distance = 0.0f;   // at what distance did the intersection occur?
+        ret.position = Vec3{}; // where was the intersection?
+        ret.normal = Vec3{};   // what was the surface normal at the intersection?
+                            // (this should be interpolated between the three vertex normals)
+        return ret;
+    }
     
     Trace ret;
     ret.origin = ray.point;
@@ -82,7 +92,8 @@ Trace Triangle::hit(const Ray& ray) const {
   
     ret.distance = t;   // at what distance did the intersection occur?
     ret.position = ray.at(t); // where was the intersection?
-    ret.normal = cross(e1, e2).normalize();   // what was the surface normal at the intersection?
+    ray.dist_bounds.y = t;
+    ret.normal = cross(e1, e2).normalize();;   // what was the surface normal at the intersection?
                            // (this should be interpolated between the three vertex normals)
     return ret;
 }

@@ -57,7 +57,7 @@ Sphere::Image::Image(const HDR_Image& image) {
     for(size_t i = 0; i < (size_t) (w * h); i++)
     {
         size_t wi =(i % w);
-        size_t hi = （size_t) std::floor((float)i / (float)w);
+        size_t hi = (size_t) std::floor((float)i / (float)w);
         if (i == 0) hi = 0;
         if (h == hi) hi -= 1;
     
@@ -116,7 +116,7 @@ float Sphere::Image::pdf(Vec3 dir) const {
     if (wid < 0.0f) wid +=  (float)w;
 
 
-    return _pdf[std::round(wid+ (float)w*hei)] / total * w * h / (2 * PI_F * PI_F * std::sin(phi));
+    return _pdf[(size_t)std::round(wid+ (float)w*hei)] / total * w * h / (2 * PI_F * PI_F * std::sin(phi));
     
 }
 

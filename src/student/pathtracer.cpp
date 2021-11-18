@@ -79,8 +79,8 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
     // Point lights are handled separately, as they cannot be intersected by tracing rays
     // into the scene.
     Spectrum radiance = point_lighting(hit);
-    if (radiance.r > 0.0f)
-        printf("%f %f %f\n", radiance.r, radiance.g, radiance.b);
+    // if (radiance.r > 0.0f)
+    //     printf("%f %f %f\n", radiance.r, radiance.g, radiance.b);
     // TODO (PathTrace): Task 4
 
     // For task 4, this function should perform almost the same sampling procedure as

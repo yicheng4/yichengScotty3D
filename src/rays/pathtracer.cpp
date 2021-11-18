@@ -343,14 +343,14 @@ Spectrum Pathtracer::point_lighting(const Shading_Info& hit) {
         (void) shadow;
         if(!shadow.hit) {
             radiance += attenuation * sample.radiance;
-            printf("NO\n");
+            // printf("NO\n");
         }
         // else{
         //     printf("yes\n");
         // }
     }
-    if (radiance.r > 0.0f)
-            printf("radiance%f %f %f\n", radiance.r, radiance.g, radiance.b);
+    // if (radiance.r > 0.0f)
+    //         printf("radiance%f %f %f\n", radiance.r, radiance.g, radiance.b);
 
     return radiance;
 }
