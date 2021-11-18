@@ -47,8 +47,8 @@ Spectrum Env_Map::evaluate(Vec3 dir) const {
     if (std::floor(height) < 0.0f || std::floor(width) < 0.0f){
         return Spectrum{};
     }
-    size_t hsmall = std::floor(height);
-    size_t wsmall = std::floor(width);
+    size_t hsmall = (size_t)std::floor(height);
+    size_t wsmall = (size_t)std::floor(width);
     if ((hsmall + 1)>= h || (wsmall + 1)>= w)
         return Spectrum{};
     float hdelta = (float)height - (float)hsmall;

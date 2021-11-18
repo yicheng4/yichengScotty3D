@@ -57,9 +57,9 @@ Sphere::Image::Image(const HDR_Image& image) {
     for(size_t i = 0; i < (size_t) (w * h); i++)
     {
         size_t wi =(i % w);
-        size_t hi = std::floor((float)i / (float)w);
+        size_t hi = （size_t) std::floor((float)i / (float)w);
         if (i == 0) hi = 0;
-        if (h == hi) hi -= 1.0f;
+        if (h == hi) hi -= 1;
     
         Spectrum pix = image.at(wi, (size_t)h - hi - 1);
         float pdfNew = pix.luma() * std::sin(hi * PI_F / h);  
@@ -87,7 +87,7 @@ Vec3 Sphere::Image::sample() const {
     if (index >= _cdf.size())
         return Vec3{};
     size_t wi =(index % w);
-    size_t hi = std::floor((float)index / (float)w);
+    size_t hi = (size_t)std::floor((float)index / (float)w);
     float theta = wi * (2.0f * PI_F) / w;
     float phi = hi * PI_F / h;
     float xs = std::sin(phi) * std::cos(theta);
@@ -116,7 +116,7 @@ float Sphere::Image::pdf(Vec3 dir) const {
     if (wid < 0.0f) wid +=  (float)w;
 
 
-    return _pdf[std::round(wid+ w*hei)] / total * w * h / (2 * PI_F * PI_F * std::sin(phi));
+    return _pdf[std::round(wid+ (float)w*hei)] / total * w * h / (2 * PI_F * PI_F * std::sin(phi));
     
 }
 
