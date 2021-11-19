@@ -11,7 +11,7 @@ Vec3 Env_Map::sample() const {
 
     // First, implement Samplers::Sphere::Uniform so the following line works.
     // Second, implement Samplers::Sphere::Image and swap to image_sampler
-
+    // return uniform_sampler.sample();
     return image_sampler.sample();
 }
 
@@ -21,7 +21,7 @@ float Env_Map::pdf(Vec3 dir) const {
 
     // First, return the pdf for a uniform spherical distribution.
     // Second, swap to image_sampler.pdf().
-
+    // return 0.25f/PI_F;
     return image_sampler.pdf(dir);
 }
 

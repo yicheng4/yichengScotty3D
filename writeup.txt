@@ -4,5 +4,6 @@ A3:
 Checkpoint:
 Fully implemented. Used bvh.
 
-Cow and human can be renderred within a second.
+Final:
+Fully implemented. You should make a lecture for the task 4 and 5. This is so confusing in math and physics. The class should have a prerequisite in physics.
     

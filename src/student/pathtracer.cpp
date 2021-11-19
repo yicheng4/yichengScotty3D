@@ -208,7 +208,7 @@ std::pair<Spectrum, Spectrum> Pathtracer::trace(const Ray& ray) {
         log_ray(ray, 3.0f);
     // Sample and return light reflected through the intersection
     
-        // printf("%f %f %f\n", emissive.r, emissive.g, emissive.b);
+       
     return {emissive, sample_direct_lighting(hit) + sample_indirect_lighting(hit)};
 }
 
