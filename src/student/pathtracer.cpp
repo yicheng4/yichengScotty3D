@@ -159,7 +159,7 @@ Spectrum Pathtracer::sample_direct_lighting(const Shading_Info& hit) {
     // BSDF::pdf(), and Pathtracer::area_lights_pdf() to compute the proper weighting.
     // What is the PDF of our sample, given it could have been produced from either source?
 
-    return radiance;
+    // return radiance;
 }
 
 std::pair<Spectrum, Spectrum> Pathtracer::trace(const Ray& ray) {
