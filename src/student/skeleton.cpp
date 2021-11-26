@@ -20,7 +20,14 @@ Mat4 Joint::joint_to_bind() const {
 
     // You will need to traverse the joint heirarchy. This should
     // not take into account Skeleton::base_pos
-    return Mat4::I;
+
+    Mat4 Transformation = Mat4::I;
+    for (Joint* joi = parent; joi != nullptr; joi = joi->parent){
+        Transformation = Mat4::translate(joi->extent) * Transformation;
+    }
+
+    
+    return Transformation;
 }
 
 Mat4 Joint::joint_to_posed() const {
@@ -32,8 +39,17 @@ Mat4 Joint::joint_to_posed() const {
 
     // You will need to traverse the joint heirarchy. This should
     // not take into account Skeleton::base_pos
-    return Mat4::I;
+
+    Mat4 Transformation = (Mat4::euler(pose));
+    for (Joint* joi = parent; joi != nullptr; joi = joi->parent){
+        Transformation = Mat4::translate(joi->extent) * Transformation;
+        Transformation = (Mat4::euler(joi->pose)) * Transformation;
+    }
+
+    
+    return Transformation;
 }
+
 
 Vec3 Skeleton::end_of(Joint* j) {
 
@@ -41,7 +57,12 @@ Vec3 Skeleton::end_of(Joint* j) {
 
     // Return the bind position of the endpoint of joint j in object space.
     // This should take into account Skeleton::base_pos.
-    return Vec3{};
+    
+
+   
+
+    
+    return j->joint_to_bind() * (base_pos + j->extent);
 }
 
 Vec3 Skeleton::posed_end_of(Joint* j) {
@@ -50,7 +71,8 @@ Vec3 Skeleton::posed_end_of(Joint* j) {
 
     // Return the posed position of the endpoint of joint j in object space.
     // This should take into account Skeleton::base_pos.
-    return Vec3{};
+    
+    return j->joint_to_posed() * (base_pos + j->extent);
 }
 
 Mat4 Skeleton::joint_to_bind(const Joint* j) const {
@@ -59,7 +81,10 @@ Mat4 Skeleton::joint_to_bind(const Joint* j) const {
 
     // Return a matrix transforming points in joint j's space to object space in
     // bind position. This should take into account Skeleton::base_pos.
-    return Mat4::I;
+    
+
+    
+    return Mat4::translate(base_pos) * j->joint_to_bind();
 }
 
 Mat4 Skeleton::joint_to_posed(const Joint* j) const {
@@ -68,7 +93,9 @@ Mat4 Skeleton::joint_to_posed(const Joint* j) const {
 
     // Return a matrix transforming points in joint j's space to object space with
     // poses. This should take into account Skeleton::base_pos.
-    return Mat4::I;
+    
+
+    return Mat4::translate(base_pos) * j->joint_to_posed() ;
 }
 
 void Skeleton::find_joints(const GL::Mesh& mesh, std::vector<std::vector<Joint*>>& map) {
