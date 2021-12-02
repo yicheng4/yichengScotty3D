@@ -42,7 +42,12 @@ template<typename T> T Spline<T>::at(float time) const {
     if (control_points.size() == 1){
         return control_points.begin()->second;
     }
-
+    if (time <= control_points.begin()->first) {
+        return control_points.begin()->second;
+    }
+    if (time >= control_points.rbegin()->first) {
+        return control_points.rbegin()->second;
+    }
     auto timeIt = control_points.upper_bound(time);
     if (timeIt == control_points.end()){
         timeIt--;
@@ -58,32 +63,33 @@ template<typename T> T Spline<T>::at(float time) const {
     const T& p2 = timeIt->second;
 
     auto time1It = timeIt;
-    time1It--;
+    time1It = std::prev(time1It);
     float k1 = time1It->first;
     const T& p1 = time1It->second;
 
     float k0;
-    T p0 = p1 - (p2 - p1);
-    if (control_points.begin() == time1It){
+    T p0; 
+    if (control_points.begin()->first == k1){
         k0 = k1 - (k2 - k1);
         // printf("k0: %f\n", k0);
-        // p0 = p1 - (p2 - p1);
+        p0 = p1 - (p2 - p1);
     }
     else{
-        time1It --;
+        
+        time1It = std::prev(time1It);
         k0 = time1It->first;
         p0 = time1It->second;
     }
     float k3;
     T p3 = timeIt->second;
-    if (control_points.end() == timeIt){
+    if (control_points.rbegin()->first == k2){
         
         k3 = k2 + (k2 - k1);
         // printf("k3: %f\n", k3);
         p3 = p2 + (p2 - p1);
     }
     else{
-        timeIt++;
+        timeIt = std::next(timeIt);
         k3 = timeIt->first;
         p3 = timeIt->second;
     }
