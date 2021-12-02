@@ -119,8 +119,8 @@ void Skeleton::find_joints(const GL::Mesh& mesh, std::vector<std::vector<Joint*>
     // effect vertex i. Note that i is NOT Vert::id! i is the index in verts.
 
     for_joints([&](Joint* j) {
-        Vec3 jStart = end_of(j);
-        Vec3 jEnd = jStart + j->extent; 
+        Vec3 jEnd = end_of(j);
+        Vec3 jStart = jEnd - j->extent; 
         for (size_t i = 0; i < verts.size(); i++){
             Vec3 iPos = verts[i].pos;
             Vec3 iPos_segment = closest_on_line_segment(jStart, jEnd, iPos);
@@ -193,14 +193,14 @@ void Joint::compute_gradient(Vec3 target, Vec3 current) {
     // recursively upward in the heirarchy. Each call should storing the result
     // in the angle_gradient for this joint.
     
-    //current and target should in pose space
+    //current and target should in joint space
     
     Mat4 Trans = joint_to_posed();
-    Vec3 p = Trans * target - Trans * current;
+    Vec3 p =  target -   current;
     Vec3 xAxis = (Trans * Vec4(1, 0 ,0 ,0)).xyz().normalize();
     Vec3 yAxis = (Trans * Vec4(0 ,1, 0 ,0)).xyz().normalize();
     Vec3 zAxis = (Trans * Vec4(0 ,0 ,1, 0)).xyz().normalize();
-    Vec3 pForcross = target - Trans[3].project();
+    Vec3 pForcross = target - Trans * current;
     
     
     angle_gradient.x += dot(cross(xAxis, pForcross), p);
@@ -229,7 +229,7 @@ void Skeleton::step_ik(std::vector<IK_Handle*> active_handles) {
             
             // Vec3 gradiant = Vec3{0.0f, 0.0f, 0.0f};
             for (Joint* k = active_handles[j]->joint; k != nullptr; k = k->parent){
-                k->compute_gradient( active_handles[j]->target, posed_end_of(k));
+                k->compute_gradient( active_handles[j]->target, posed_end_of(active_handles[j]->joint) - base_pos);
                 // gradiant += k->angle_gradient;
             }
             
