@@ -9,13 +9,13 @@ Vec3 closest_on_line_segment(Vec3 start, Vec3 end, Vec3 point) {
     Vec3 close;
     Vec3 end2 = end - start;
     Vec3 pt2 = point - start;
-    Vec3 closest;
-    if (dot(end2, pt2) < 0)
-        close = Vec3(0, 0, 0);
-    else if (dot(end2, pt2) >= end2.norm())
+    Vec3 unitEnd2 = end2.unit();
+    if (dot(pt2, unitEnd2) < 0.0f)
+        close = Vec3(0.0f);
+    else if (dot(pt2, unitEnd2) >= end2.norm())
         close = end2;
-      else
-        close = dot(end2, pt2) * end2;
+    else
+        close = dot(pt2, unitEnd2) * end2.unit();
     return start + close;
 }
 
@@ -120,11 +120,11 @@ void Skeleton::find_joints(const GL::Mesh& mesh, std::vector<std::vector<Joint*>
 
     for_joints([&](Joint* j) {
         Vec3 jEnd = end_of(j);
-        Vec3 jStart = jEnd - j->extent; 
+        Vec3 jStart = joint_to_bind(j) * Vec3(0);
         for (size_t i = 0; i < verts.size(); i++){
             Vec3 iPos = verts[i].pos;
             Vec3 iPos_segment = closest_on_line_segment(jStart, jEnd, iPos);
-            float dist = (iPos_segment - jStart).norm();
+            float dist = (iPos_segment - iPos).norm();
             if (dist < j->radius){
                 map[i].push_back(j);
             }
@@ -150,32 +150,38 @@ void Skeleton::skin(const GL::Mesh& input, GL::Mesh& output,
     for(size_t i = 0; i < verts.size(); i++) {
 
         // Skin vertex i. Note that its position is given in object bind space.
-        // float distSum = 0.0f;
-        // for (size_t ji = 0; ji < map[i].size(); ji++){
-        //     Vec3 jStart = end_of(map[i][ji]);
-        //     Vec3 jEnd = jStart + map[i][ji]->extent; 
-        //     Vec3 iPos = verts[i].pos;
-        //     float dist = (closest_on_line_segment(jStart, jEnd, iPos) - jStart).norm();
-        //     distSum += 1.0f/dist;
-        // }
-        // for (size_t ji = 0; ji < map[i].size(); ji++){
-        //     Vec3 jStart = end_of(map[i][ji]);
-        //     Vec3 jEnd = jStart + map[i][ji]->extent; 
-        //     Vec3 iPos = verts[i].pos;
-        //     float dist = (closest_on_line_segment(jStart, jEnd, iPos) - jStart).norm();
-        //     distSum += 1.0f/dist;
-        // }
-        // Vec3 newPos = Vec3(0.0f);
-        // for (size_t ji = 0; ji < map[i].size(); ji++){
-        //     Vec3 jStart = end_of(map[i][ji]);
-        //     Vec3 jEnd = jStart + map[i][ji]->extent; 
-        //     Vec3 iPos = verts[i].pos;
-        //     float dist = (closest_on_line_segment(jStart, jEnd, iPos) - jStart).norm();
-        //     float w = 1.0f/dist/distSum;
-        //     Vec3 vPosJ = joint_to_bind(map[i][ji]) * jStart - jStart;
-        //     newPos = w * vPosJ + newPos;
-        // }
-        // verts[i].norm = verts[i].pos.normalize();
+        float distSum = 0.0f;
+        
+        for (size_t ji = 0; ji < map[i].size(); ji++){
+            Joint* j = map[i][ji];
+            Vec3 jEnd = end_of(j);
+            Vec3 jStart = joint_to_bind(j) * Vec3(0);
+            
+            Vec3 iPos = verts[i].pos;
+            float dist = (closest_on_line_segment(jStart, jEnd, iPos) - iPos).norm();
+            distSum += 1.0f/dist;
+        }
+        
+        Vec3 newPos = Vec3(0.0f);
+        Vec3 newNorm = Vec3(0.0f);
+        for (size_t ji = 0; ji < map[i].size(); ji++){
+            Joint* j = map[i][ji];
+            Vec3 jEnd = end_of(j);
+            Vec3 jStart = joint_to_bind(j) * Vec3(0);
+            Vec3 iPos = verts[i].pos;
+            Vec3 iNorm = verts[i].norm;
+            float dist = (closest_on_line_segment(jStart, jEnd, iPos) - iPos).norm();
+            float w = (1.0f/dist)/distSum;
+            Vec3 vPosJ = joint_to_posed(map[i][ji]) * Mat4::inverse(joint_to_bind(map[i][ji])) * (iPos);
+            Vec3 vNormJ = (joint_to_posed(map[i][ji]) * Mat4::inverse(joint_to_bind(map[i][ji])) * (Vec4(iNorm, 0.0f))).xyz();
+            newPos = w * vPosJ + newPos;
+            newNorm = w * vNormJ + newNorm;
+        }
+        verts[i].pos = newPos;
+        verts[i].norm = newNorm.unit();
+        
+        
+        
 
 
 
@@ -196,11 +202,11 @@ void Joint::compute_gradient(Vec3 target, Vec3 current) {
     //current and target should in joint space
     
     Mat4 Trans = joint_to_posed();
-    Vec3 p =  target -   current;
+    Vec3 p =  current - target;
     Vec3 xAxis = (Trans * Vec4(1, 0 ,0 ,0)).xyz().normalize();
     Vec3 yAxis = (Trans * Vec4(0 ,1, 0 ,0)).xyz().normalize();
     Vec3 zAxis = (Trans * Vec4(0 ,0 ,1, 0)).xyz().normalize();
-    Vec3 pForcross = target - Trans * current;
+    Vec3 pForcross = current - Trans * current;
     
     
     angle_gradient.x += dot(cross(xAxis, pForcross), p);
@@ -230,11 +236,11 @@ void Skeleton::step_ik(std::vector<IK_Handle*> active_handles) {
             // Vec3 gradiant = Vec3{0.0f, 0.0f, 0.0f};
             for (Joint* k = active_handles[j]->joint; k != nullptr; k = k->parent){
                 k->compute_gradient( active_handles[j]->target, posed_end_of(active_handles[j]->joint) - base_pos);
-                // gradiant += k->angle_gradient;
+                
             }
             
         }
-        for_joints([&](Joint* j){j->pose -= basic_step * j->angle_gradient;});
+        for_joints([&](Joint* j){j->pose += basic_step * j->angle_gradient;});
 
     }
     
